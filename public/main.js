@@ -32,6 +32,7 @@ game.playerAdd({ player_id: PLAYER4, team_id: '2' })
 game.on(EVENT.UNIT_ADD, ({ unit_id, life, range }) => {
     units[unit_id].range = range
     units[unit_id].changeLife(life)
+    updateCounter()
 })
 game.on(EVENT.FLAG_TILE, ({ flag_id, tile_id }) => {
     flags[flag_id].changePosition(tile_id)
@@ -79,9 +80,9 @@ game.on(EVENT.UNIT_LIFE, ({ unit_id, life }) => {
 game.on(EVENT.UNIT_DIE, ({ unit_id }) => {
     units[unit_id].die()
     delete units[unit_id]
+    updateCounter()
 })
 game.on(EVENT.FLAG_PLAYER, ({ flag_id, player_id }) => {
-    console.log({ flag_id, player_id })
     flags[flag_id].changePlayer(player_id)
 })
 
@@ -354,6 +355,22 @@ function createUnitObject({ unit_type, unit_id }) {
     }
 
     return unit
+}
+
+function updateCounter() {
+    const counter = {
+        1: 0,
+        2: 0,
+        3: 0,
+        4: 0
+    }
+    for (const unit_id in units) {
+        counter[units[unit_id].player_id] += 1
+    }
+    for (const player_id in counter) {
+        document.getElementById(`counter${player_id}`).innerHTML =
+            counter[player_id]
+    }
 }
 
 function getNextTileId(inverted = false) {

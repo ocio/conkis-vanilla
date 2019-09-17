@@ -9,6 +9,14 @@
             height: 30px;
             background-size: 100%;
         }
+        #units > div > div {
+            display: inline-block;
+            /* height: 30px; */
+            font-size: 20px;
+            font-weight: bold;
+            font-family: arial;
+            text-align: right;
+        }
         #grid {
             position: relative;
         }
@@ -73,19 +81,19 @@
             /* opacity: 0.5    ; */
             border-width: 5px
         }
-        #button_turn1 {
+        #button_turn1, #counter1 {
             color: #007eff;
             border: 0px solid #007eff
         }
-        #button_turn2 {
+        #button_turn2, #counter2 {
             color: #ff0036;
             border: 0px solid #ff0036
         }
-        #button_turn3 {
+        #button_turn3, #counter3 {
             color: #5a9f00;
             border: 0px solid #5a9f00
         }
-        #button_turn4 {
+        #button_turn4, #counter4 {
             color: #f5a100;
             border: 0px solid #f5a100
         }
@@ -94,6 +102,7 @@
     <div id="buttons">
         <div id="units">
             <div>
+                <div id="counter1">0</div>
                 <button style="background-image:url(img/tower1.png)" onclick="unitAdd('tower',1)" />
                 <button style="background-image:url(img/catapult1.png)" onclick="unitAdd('catapult',1)" />
                 <button style="background-image:url(img/horse1.png)" onclick="unitAdd('horse',1)" />
@@ -104,6 +113,7 @@
                 <button style="background-image:url(img/horsearcher1.png)" onclick="unitAdd('horsearcher',1)" />
             </div>
             <div>
+                <div id="counter3">0</div>
                 <button style="background-image:url(img/tower3.png)" onclick="unitAdd('tower',3)" />
                 <button style="background-image:url(img/catapult3.png)" onclick="unitAdd('catapult',3)" />
                 <button style="background-image:url(img/horse3.png)" onclick="unitAdd('horse',3)" />
@@ -115,6 +125,7 @@
             </div>
             <br />
             <div>
+                <div id="counter2">0</div>
                 <button style="background-image:url(img/tower2.png)" onclick="unitAdd('tower',2)" />
                 <button style="background-image:url(img/catapult2.png)" onclick="unitAdd('catapult',2)" />
                 <button style="background-image:url(img/horse2.png)" onclick="unitAdd('horse',2)" />
@@ -125,6 +136,7 @@
                 <button style="background-image:url(img/horsearcher2.png)" onclick="unitAdd('horsearcher',2)" />
             </div>
             <div>
+                <div id="counter4">0</div>
                 <button style="background-image:url(img/tower4.png)" onclick="unitAdd('tower',4)" />
                 <button style="background-image:url(img/catapult4.png)" onclick="unitAdd('catapult',4)" />
                 <button style="background-image:url(img/horse4.png)" onclick="unitAdd('horse',4)" />
