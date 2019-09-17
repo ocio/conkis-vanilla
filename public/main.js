@@ -38,6 +38,11 @@ game.on(EVENT.FLAG_TILE, ({ flag_id, tile_id }) => {
 })
 game.on(EVENT.UNIT_TILE, ({ unit_id, tile_id }) => {
     units[unit_id].changePosition(tile_id)
+    const flag_id = getFlagByTile(tile_id)
+    if (flag_id !== undefined && !document.getElementById('editing').checked) {
+        const { player_id } = units[unit_id]
+        game.flagPlayer({ flag_id, player_id })
+    }
 })
 game.on(EVENT.UNIT_SELECT, ({ unit_id, walkables, attackables }) => {
     const { range, tile_id } = units[unit_id]
@@ -54,20 +59,31 @@ game.on(EVENT.UNIT_SELECT, ({ unit_id, walkables, attackables }) => {
         attackables.forEach(({ tile_id }) => setTileAttackable(tile_id))
     }
 })
-game.on(EVENT.UNIT_WALK, ({ unit_id, path }) => {
-    units[unit_id].changePath(path)
+game.on(EVENT.UNIT_WALK, ({ unit_id, path, movement }) => {
+    if (movement >= path.length) {
+        turn_walks.push(unit_id)
+        units[unit_id].changePath(path)
+    }
 })
-// game.on(EVENT.UNIT, ({ unit_id, path }) => {
-//     const tile_id = path[path.length - 1]
-//     units[unit_id].changePosition(tile_id)
-// })
-// game.on(EVENT.ATTACK, ({ unit_id, unit_id_enemy, life }) => {
-//     units[unit_id_enemy].changeLife(life)
-// })
-// game.on(EVENT.DIE, ({ unit_id }) => {
-//     units[unit_id].die()
-//     delete units[unit_id]
-// })
+game.on(EVENT.UNIT_ATTACK, ({ enemies }) => {
+    enemies.forEach(({ life, damage, unit_id }) => {
+        const newlife = life - damage
+        if (newlife < 1) game.unitDie({ unit_id })
+        else game.unitLife({ unit_id, life: newlife })
+    })
+    if (enemies.length > 0) turn_attacks.push(unit_selected)
+})
+game.on(EVENT.UNIT_LIFE, ({ unit_id, life }) => {
+    units[unit_id].changeLife(life)
+})
+game.on(EVENT.UNIT_DIE, ({ unit_id }) => {
+    units[unit_id].die()
+    delete units[unit_id]
+})
+game.on(EVENT.FLAG_PLAYER, ({ flag_id, player_id }) => {
+    console.log({ flag_id, player_id })
+    flags[flag_id].changePlayer(player_id)
+})
 
 function changeTurn(player_id) {
     clearTiles()
@@ -99,10 +115,12 @@ function onClick(tile_id) {
             unit_selected !== undefined &&
             !turn_attacks.includes(unit_selected)
         ) {
-            try {
-                game.unitAttack({ unit_id: unit_selected, tile_id })
-                turn_attacks.push(unit_selected)
-            } catch (e) {}
+            game.unitAttack({ unit_id: unit_selected, tile_id })
+            unit_selected = undefined
+        }
+
+        // UNSELECT
+        else {
             unit_selected = undefined
         }
     }
@@ -113,16 +131,13 @@ function onClick(tile_id) {
         !turn_attacks.includes(unit_selected) &&
         !turn_walks.includes(unit_selected)
     ) {
-        try {
-            const unit_id = unit_selected
-            game.unitWalk({ unit_id, tile_id })
-            turn_walks.push(unit_id)
-            unit_selected = undefined
-            onClick(units[unit_id].tile_id)
-        } catch (e) {
-            unit_selected = undefined
-        }
-    } else {
+        const unit_id = unit_selected
+        game.unitWalk({ unit_id, tile_id })
+        unit_selected = undefined
+    }
+
+    // UNSELECT
+    else {
         unit_selected = undefined
     }
 }
@@ -132,44 +147,59 @@ function onMouseDown(tile_id) {
     flag_dragging = getFlagByTile(tile_id)
 }
 function onMouseOver(tile_id) {
-    const organizing = document.getElementById('organizing').checked
+    const editing = document.getElementById('editing').checked
     if (
-        organizing &&
+        editing &&
         unit_dragging !== undefined &&
         getUnitByTile(tile_id) === undefined
     ) {
         clearTiles()
         game.unitTile({ unit_id: unit_dragging, tile_id })
     } else if (
-        organizing &&
+        editing &&
         flag_dragging !== undefined &&
         getFlagByTile(tile_id) === undefined
     ) {
         clearTiles()
         game.flagTile({ flag_id: flag_dragging, tile_id })
     } else if (unit_selected !== undefined) {
-        // clearTilesRange()
-        // const unit = units[unit_selected]
-        // const tile_id_origin =
-        //     unit_tiles_rangeables.includes(tile_id) &&
-        //     !turn_attacks.includes(unit_selected) &&
-        //     !turn_walks.includes(unit_selected)
-        //         ? tile_id
-        //         : unit.tile_id
-        // game.getTilesByRange({
-        //     tile_id: tile_id_origin,
-        //     range: unit.range
-        // }).forEach(tile_id => {
-        //     const className = tiles[tile_id].className
-        //     if (className === '') {
-        //         setTileRange(tile_id)
-        //     }
-        // })
+        clearTilesRange()
+        const unit = units[unit_selected]
+        const tile_id_origin =
+            unit_tiles_rangeables.includes(tile_id) &&
+            !turn_attacks.includes(unit_selected) &&
+            !turn_walks.includes(unit_selected)
+                ? tile_id
+                : unit.tile_id
+        game.getTilesByRange({
+            tile_id: tile_id_origin,
+            range: unit.range
+        }).forEach(tile_id => {
+            const className = tiles[tile_id].className
+            if (className === '') {
+                setTileRange(tile_id)
+            }
+        })
     }
 }
 function onMouseUp(tile_id, e) {
     unit_dragging = undefined
     flag_dragging = undefined
+}
+
+function onRightClick(tile_id, e) {
+    e.preventDefault()
+    if (document.getElementById('editing').checked) {
+        const flag_id = getFlagByTile(tile_id)
+        const unit_id = getUnitByTile(tile_id)
+        if (flag_id !== undefined) {
+            flags[flag_id].remove()
+            delete flags[flag_id]
+        } else if (unit_id !== undefined) {
+            game.unitDie({ unit_id })
+        }
+    }
+    return false
 }
 
 function getUnitByTile(tile_id) {
@@ -195,6 +225,7 @@ function unitAdd(type, player_id) {
     const unit_type = type.toUpperCase()
     const unit = createUnit({ img: `img/${type}${player_id}.png` })
     unit.player_id = player_id
+    unit.unit_id = unit_id
     units[unit_id] = unit
     game.unitAdd(createUnitObject({ unit_id, unit_type }))
     game.unitPlayer({ unit_id, player_id })
@@ -204,7 +235,7 @@ function unitAdd(type, player_id) {
 function flagAdd() {
     clearTiles()
     const tile_id =
-        tiles_list[Math.round(tiles_list.length / 2) + flag_id_index]
+        tiles_list[Math.floor(tiles_list.length / 2) + flag_id_index]
     const flag_id = (flag_id_index++).toString()
     flags[flag_id] = createFlag()
     game.flagAdd({ flag_id })
@@ -228,10 +259,36 @@ function createUnit({ img }) {
             div.style.left = `${size * y + y}px`
         },
         changePath: path => {
-            const { x, y } = tiles[tile_id]
-            object.tile_id = tile_id
-            div.style.top = `${size * x + x}px`
-            div.style.left = `${size * y + y}px`
+            path.unshift(object.tile_id)
+            ;(function loop(index) {
+                const tile1 = tiles[path[index]]
+                const tile2 = tiles[path[index + 1]]
+                const originx = size * tile1.x + tile1.x
+                const originy = size * tile1.y + tile1.y
+                const destinyx = size * tile2.x + tile2.x
+                const destinyy = size * tile2.y + tile2.y
+                new TWEEN.Tween({ x: originx, y: originy })
+                    .to(
+                        {
+                            x: destinyx,
+                            y: destinyy
+                        },
+                        250
+                    )
+                    .onUpdate(o => {
+                        div.style.top = `${o.x}px`
+                        div.style.left = `${o.y}px`
+                    })
+                    .onComplete(() => {
+                        if (index + 1 < path.length - 1) loop(index + 1)
+                        else {
+                            const tile_id = path[path.length - 1]
+                            game.unitTile({ unit_id: object.unit_id, tile_id })
+                            onClick(tile_id)
+                        }
+                    })
+                    .start()
+            })(0)
         },
         changeLife: l => {
             life.innerHTML = l
@@ -258,7 +315,10 @@ function createFlag() {
             div.style.left = `${size * y + y}px`
         },
         changePlayer: player_id => {
-            div.style.background_image = `flag${player_id}.png`
+            div.style.backgroundImage = `url('img/flag${player_id}.png')`
+        },
+        remove: () => {
+            document.getElementById('grid').removeChild(div)
         }
     }
     return object
@@ -319,6 +379,7 @@ function createGrid() {
             div.onmousedown = e => onMouseDown(id, e)
             div.onmouseup = e => onMouseUp(id, e)
             div.onmouseover = e => onMouseOver(id, e)
+            div.oncontextmenu = e => onRightClick(id, e)
             div.style.width = `${size}px`
             div.style.height = `${size}px`
             div.style.top = `${size * x + x}px`
@@ -353,3 +414,9 @@ function clearTilesRange() {
         if (tiles[tile_id].className === 'range') tiles[tile_id].className = ''
     }
 }
+
+function animate(time) {
+    requestAnimationFrame(animate)
+    TWEEN.update(time)
+}
+requestAnimationFrame(animate)

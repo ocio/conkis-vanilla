@@ -524,9 +524,195 @@ function functionBindPolyfill(context) {
 }
 
 },{}],2:[function(require,module,exports){
+// shim for using process in browser
+var process = module.exports = {};
+
+// cached from whatever global is present so that test runners that stub it
+// don't break things.  But we need to wrap it in a try catch in case it is
+// wrapped in strict mode code which doesn't define any globals.  It's inside a
+// function because try/catches deoptimize in certain engines.
+
+var cachedSetTimeout;
+var cachedClearTimeout;
+
+function defaultSetTimout() {
+    throw new Error('setTimeout has not been defined');
+}
+function defaultClearTimeout () {
+    throw new Error('clearTimeout has not been defined');
+}
+(function () {
+    try {
+        if (typeof setTimeout === 'function') {
+            cachedSetTimeout = setTimeout;
+        } else {
+            cachedSetTimeout = defaultSetTimout;
+        }
+    } catch (e) {
+        cachedSetTimeout = defaultSetTimout;
+    }
+    try {
+        if (typeof clearTimeout === 'function') {
+            cachedClearTimeout = clearTimeout;
+        } else {
+            cachedClearTimeout = defaultClearTimeout;
+        }
+    } catch (e) {
+        cachedClearTimeout = defaultClearTimeout;
+    }
+} ())
+function runTimeout(fun) {
+    if (cachedSetTimeout === setTimeout) {
+        //normal enviroments in sane situations
+        return setTimeout(fun, 0);
+    }
+    // if setTimeout wasn't available but was latter defined
+    if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
+        cachedSetTimeout = setTimeout;
+        return setTimeout(fun, 0);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedSetTimeout(fun, 0);
+    } catch(e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
+            return cachedSetTimeout.call(null, fun, 0);
+        } catch(e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
+            return cachedSetTimeout.call(this, fun, 0);
+        }
+    }
+
+
+}
+function runClearTimeout(marker) {
+    if (cachedClearTimeout === clearTimeout) {
+        //normal enviroments in sane situations
+        return clearTimeout(marker);
+    }
+    // if clearTimeout wasn't available but was latter defined
+    if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
+        cachedClearTimeout = clearTimeout;
+        return clearTimeout(marker);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedClearTimeout(marker);
+    } catch (e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
+            return cachedClearTimeout.call(null, marker);
+        } catch (e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
+            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
+            return cachedClearTimeout.call(this, marker);
+        }
+    }
+
+
+
+}
+var queue = [];
+var draining = false;
+var currentQueue;
+var queueIndex = -1;
+
+function cleanUpNextTick() {
+    if (!draining || !currentQueue) {
+        return;
+    }
+    draining = false;
+    if (currentQueue.length) {
+        queue = currentQueue.concat(queue);
+    } else {
+        queueIndex = -1;
+    }
+    if (queue.length) {
+        drainQueue();
+    }
+}
+
+function drainQueue() {
+    if (draining) {
+        return;
+    }
+    var timeout = runTimeout(cleanUpNextTick);
+    draining = true;
+
+    var len = queue.length;
+    while(len) {
+        currentQueue = queue;
+        queue = [];
+        while (++queueIndex < len) {
+            if (currentQueue) {
+                currentQueue[queueIndex].run();
+            }
+        }
+        queueIndex = -1;
+        len = queue.length;
+    }
+    currentQueue = null;
+    draining = false;
+    runClearTimeout(timeout);
+}
+
+process.nextTick = function (fun) {
+    var args = new Array(arguments.length - 1);
+    if (arguments.length > 1) {
+        for (var i = 1; i < arguments.length; i++) {
+            args[i - 1] = arguments[i];
+        }
+    }
+    queue.push(new Item(fun, args));
+    if (queue.length === 1 && !draining) {
+        runTimeout(drainQueue);
+    }
+};
+
+// v8 likes predictible objects
+function Item(fun, array) {
+    this.fun = fun;
+    this.array = array;
+}
+Item.prototype.run = function () {
+    this.fun.apply(null, this.array);
+};
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+process.version = ''; // empty string to avoid regexp issues
+process.versions = {};
+
+function noop() {}
+
+process.on = noop;
+process.addListener = noop;
+process.once = noop;
+process.off = noop;
+process.removeListener = noop;
+process.removeAllListeners = noop;
+process.emit = noop;
+process.prependListener = noop;
+process.prependOnceListener = noop;
+
+process.listeners = function (name) { return [] }
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+};
+
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+process.umask = function() { return 0; };
+
+},{}],3:[function(require,module,exports){
 module.exports = require('./lib/heap');
 
-},{"./lib/heap":3}],3:[function(require,module,exports){
+},{"./lib/heap":4}],4:[function(require,module,exports){
 // Generated by CoffeeScript 1.8.0
 (function() {
   var Heap, defaultCmp, floor, heapify, heappop, heappush, heappushpop, heapreplace, insort, min, nlargest, nsmallest, updateItem, _siftdown, _siftup;
@@ -897,10 +1083,10 @@ module.exports = require('./lib/heap');
 
 }).call(this);
 
-},{}],4:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 module.exports = require('./src/PathFinding');
 
-},{"./src/PathFinding":5}],5:[function(require,module,exports){
+},{"./src/PathFinding":6}],6:[function(require,module,exports){
 module.exports = {
     'Heap'                      : require('heap'),
     'Node'                      : require('./core/Node'),
@@ -920,7 +1106,7 @@ module.exports = {
     'JumpPointFinder'           : require('./finders/JumpPointFinder'),
 };
 
-},{"./core/DiagonalMovement":6,"./core/Grid":7,"./core/Heuristic":8,"./core/Node":9,"./core/Util":10,"./finders/AStarFinder":11,"./finders/BestFirstFinder":12,"./finders/BiAStarFinder":13,"./finders/BiBestFirstFinder":14,"./finders/BiBreadthFirstFinder":15,"./finders/BiDijkstraFinder":16,"./finders/BreadthFirstFinder":17,"./finders/DijkstraFinder":18,"./finders/IDAStarFinder":19,"./finders/JumpPointFinder":24,"heap":2}],6:[function(require,module,exports){
+},{"./core/DiagonalMovement":7,"./core/Grid":8,"./core/Heuristic":9,"./core/Node":10,"./core/Util":11,"./finders/AStarFinder":12,"./finders/BestFirstFinder":13,"./finders/BiAStarFinder":14,"./finders/BiBestFirstFinder":15,"./finders/BiBreadthFirstFinder":16,"./finders/BiDijkstraFinder":17,"./finders/BreadthFirstFinder":18,"./finders/DijkstraFinder":19,"./finders/IDAStarFinder":20,"./finders/JumpPointFinder":25,"heap":3}],7:[function(require,module,exports){
 var DiagonalMovement = {
     Always: 1,
     Never: 2,
@@ -929,7 +1115,7 @@ var DiagonalMovement = {
 };
 
 module.exports = DiagonalMovement;
-},{}],7:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 var Node = require('./Node');
 var DiagonalMovement = require('./DiagonalMovement');
 
@@ -1176,7 +1362,7 @@ Grid.prototype.clone = function() {
 
 module.exports = Grid;
 
-},{"./DiagonalMovement":6,"./Node":9}],8:[function(require,module,exports){
+},{"./DiagonalMovement":7,"./Node":10}],9:[function(require,module,exports){
 /**
  * @namespace PF.Heuristic
  * @description A collection of heuristic functions.
@@ -1226,7 +1412,7 @@ module.exports = {
 
 };
 
-},{}],9:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 /**
  * A node in grid. 
  * This class holds some basic information about a node and custom 
@@ -1256,7 +1442,7 @@ function Node(x, y, walkable) {
 
 module.exports = Node;
 
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 /**
  * Backtrace according to the parent records and return the path.
  * (including both start and end nodes)
@@ -1504,7 +1690,7 @@ function compressPath(path) {
 }
 exports.compressPath = compressPath;
 
-},{}],11:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 var Heap       = require('heap');
 var Util       = require('../core/Util');
 var Heuristic  = require('../core/Heuristic');
@@ -1632,7 +1818,7 @@ AStarFinder.prototype.findPath = function(startX, startY, endX, endY, grid) {
 
 module.exports = AStarFinder;
 
-},{"../core/DiagonalMovement":6,"../core/Heuristic":8,"../core/Util":10,"heap":2}],12:[function(require,module,exports){
+},{"../core/DiagonalMovement":7,"../core/Heuristic":9,"../core/Util":11,"heap":3}],13:[function(require,module,exports){
 var AStarFinder = require('./AStarFinder');
 
 /**
@@ -1662,7 +1848,7 @@ BestFirstFinder.prototype.constructor = BestFirstFinder;
 
 module.exports = BestFirstFinder;
 
-},{"./AStarFinder":11}],13:[function(require,module,exports){
+},{"./AStarFinder":12}],14:[function(require,module,exports){
 var Heap       = require('heap');
 var Util       = require('../core/Util');
 var Heuristic  = require('../core/Heuristic');
@@ -1845,7 +2031,7 @@ BiAStarFinder.prototype.findPath = function(startX, startY, endX, endY, grid) {
 
 module.exports = BiAStarFinder;
 
-},{"../core/DiagonalMovement":6,"../core/Heuristic":8,"../core/Util":10,"heap":2}],14:[function(require,module,exports){
+},{"../core/DiagonalMovement":7,"../core/Heuristic":9,"../core/Util":11,"heap":3}],15:[function(require,module,exports){
 var BiAStarFinder = require('./BiAStarFinder');
 
 /**
@@ -1875,7 +2061,7 @@ BiBestFirstFinder.prototype.constructor = BiBestFirstFinder;
 
 module.exports = BiBestFirstFinder;
 
-},{"./BiAStarFinder":13}],15:[function(require,module,exports){
+},{"./BiAStarFinder":14}],16:[function(require,module,exports){
 var Util = require('../core/Util');
 var DiagonalMovement = require('../core/DiagonalMovement');
 
@@ -1992,7 +2178,7 @@ BiBreadthFirstFinder.prototype.findPath = function(startX, startY, endX, endY, g
 
 module.exports = BiBreadthFirstFinder;
 
-},{"../core/DiagonalMovement":6,"../core/Util":10}],16:[function(require,module,exports){
+},{"../core/DiagonalMovement":7,"../core/Util":11}],17:[function(require,module,exports){
 var BiAStarFinder = require('./BiAStarFinder');
 
 /**
@@ -2018,7 +2204,7 @@ BiDijkstraFinder.prototype.constructor = BiDijkstraFinder;
 
 module.exports = BiDijkstraFinder;
 
-},{"./BiAStarFinder":13}],17:[function(require,module,exports){
+},{"./BiAStarFinder":14}],18:[function(require,module,exports){
 var Util = require('../core/Util');
 var DiagonalMovement = require('../core/DiagonalMovement');
 
@@ -2099,7 +2285,7 @@ BreadthFirstFinder.prototype.findPath = function(startX, startY, endX, endY, gri
 
 module.exports = BreadthFirstFinder;
 
-},{"../core/DiagonalMovement":6,"../core/Util":10}],18:[function(require,module,exports){
+},{"../core/DiagonalMovement":7,"../core/Util":11}],19:[function(require,module,exports){
 var AStarFinder = require('./AStarFinder');
 
 /**
@@ -2125,7 +2311,7 @@ DijkstraFinder.prototype.constructor = DijkstraFinder;
 
 module.exports = DijkstraFinder;
 
-},{"./AStarFinder":11}],19:[function(require,module,exports){
+},{"./AStarFinder":12}],20:[function(require,module,exports){
 var Util       = require('../core/Util');
 var Heuristic  = require('../core/Heuristic');
 var Node       = require('../core/Node');
@@ -2336,7 +2522,7 @@ IDAStarFinder.prototype.findPath = function(startX, startY, endX, endY, grid) {
 
 module.exports = IDAStarFinder;
 
-},{"../core/DiagonalMovement":6,"../core/Heuristic":8,"../core/Node":9,"../core/Util":10}],20:[function(require,module,exports){
+},{"../core/DiagonalMovement":7,"../core/Heuristic":9,"../core/Node":10,"../core/Util":11}],21:[function(require,module,exports){
 /**
  * @author imor / https://github.com/imor
  */
@@ -2487,7 +2673,7 @@ JPFAlwaysMoveDiagonally.prototype._findNeighbors = function(node) {
 
 module.exports = JPFAlwaysMoveDiagonally;
 
-},{"../core/DiagonalMovement":6,"./JumpPointFinderBase":25}],21:[function(require,module,exports){
+},{"../core/DiagonalMovement":7,"./JumpPointFinderBase":26}],22:[function(require,module,exports){
 /**
  * @author imor / https://github.com/imor
  */
@@ -2644,7 +2830,7 @@ JPFMoveDiagonallyIfAtMostOneObstacle.prototype._findNeighbors = function(node) {
 
 module.exports = JPFMoveDiagonallyIfAtMostOneObstacle;
 
-},{"../core/DiagonalMovement":6,"./JumpPointFinderBase":25}],22:[function(require,module,exports){
+},{"../core/DiagonalMovement":7,"./JumpPointFinderBase":26}],23:[function(require,module,exports){
 /**
  * @author imor / https://github.com/imor
  */
@@ -2820,7 +3006,7 @@ JPFMoveDiagonallyIfNoObstacles.prototype._findNeighbors = function(node) {
 
 module.exports = JPFMoveDiagonallyIfNoObstacles;
 
-},{"../core/DiagonalMovement":6,"./JumpPointFinderBase":25}],23:[function(require,module,exports){
+},{"../core/DiagonalMovement":7,"./JumpPointFinderBase":26}],24:[function(require,module,exports){
 /**
  * @author imor / https://github.com/imor
  */
@@ -2942,7 +3128,7 @@ JPFNeverMoveDiagonally.prototype._findNeighbors = function(node) {
 
 module.exports = JPFNeverMoveDiagonally;
 
-},{"../core/DiagonalMovement":6,"./JumpPointFinderBase":25}],24:[function(require,module,exports){
+},{"../core/DiagonalMovement":7,"./JumpPointFinderBase":26}],25:[function(require,module,exports){
 /**
  * @author aniero / https://github.com/aniero
  */
@@ -2975,7 +3161,7 @@ function JumpPointFinder(opt) {
 
 module.exports = JumpPointFinder;
 
-},{"../core/DiagonalMovement":6,"./JPFAlwaysMoveDiagonally":20,"./JPFMoveDiagonallyIfAtMostOneObstacle":21,"./JPFMoveDiagonallyIfNoObstacles":22,"./JPFNeverMoveDiagonally":23}],25:[function(require,module,exports){
+},{"../core/DiagonalMovement":7,"./JPFAlwaysMoveDiagonally":21,"./JPFMoveDiagonallyIfAtMostOneObstacle":22,"./JPFMoveDiagonallyIfNoObstacles":23,"./JPFNeverMoveDiagonally":24}],26:[function(require,module,exports){
 /**
  * @author imor / https://github.com/imor
  */
@@ -3091,7 +3277,7 @@ JumpPointFinderBase.prototype._identifySuccessors = function(node) {
 
 module.exports = JumpPointFinderBase;
 
-},{"../core/DiagonalMovement":6,"../core/Heuristic":8,"../core/Util":10,"heap":2}],26:[function(require,module,exports){
+},{"../core/DiagonalMovement":7,"../core/Heuristic":9,"../core/Util":11,"heap":3}],27:[function(require,module,exports){
 const EVENT = {
     // MUTATORS
     PLAYER_ADD: 'PLAYER_ADD',
@@ -3111,7 +3297,7 @@ const EVENT = {
 
 module.exports = EVENT
 
-},{}],27:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 const EVENT = require('./events')
 
 const CROSSABLE_TYPE = {
@@ -3144,7 +3330,7 @@ module.exports = {
     UNIT_RELATION
 }
 
-},{"./events":26}],28:[function(require,module,exports){
+},{"./events":27}],29:[function(require,module,exports){
 // https://alligator.io/js/class-composition/
 const { CROSSABLE_TYPE, UNIT_RELATION } = require('../const')
 const { PathFinder } = require('./PathFinder')
@@ -3296,7 +3482,7 @@ function Board({ columns, rows }) {
             x1: tile1.x,
             y1: tile1.y,
             x2: tile2.x,
-            y2: tile2.x
+            y2: tile2.y
         })
     }
 
@@ -3361,7 +3547,7 @@ function getTileId(x, y) {
     return `${x}.${y}`
 }
 
-},{"../const":27,"../elements/Flag":34,"../elements/Tile":39,"../utils/math":46,"./PathFinder":30}],29:[function(require,module,exports){
+},{"../const":28,"../elements/Flag":35,"../elements/Tile":40,"../utils/math":47,"./PathFinder":31}],30:[function(require,module,exports){
 const EventEmitter = require('events')
 const { EVENT } = require('../const')
 const { eventToFunction } = require('../utils/string')
@@ -3498,7 +3684,7 @@ function Game({ columns, rows }) {
 
 module.exports = Game
 
-},{"../const":27,"../rules/unitAttack":43,"../rules/unitSelect":44,"../rules/unitWalk":45,"../utils/string":47,"../utils/validators":48,"./Board":28,"events":1}],30:[function(require,module,exports){
+},{"../const":28,"../rules/unitAttack":44,"../rules/unitSelect":45,"../rules/unitWalk":46,"../utils/string":48,"../utils/validators":49,"./Board":29,"events":1}],31:[function(require,module,exports){
 // This library is not performant. We should use another library in the future.
 // The reason is because we have to make a grid.clone() every time we want to findPath()
 // https://github.com/qiao/PathFinding.js/issues/33
@@ -3587,7 +3773,7 @@ module.exports = { PathFinder }
 //     return neighbors;
 //   };
 
-},{"pathfinding":4}],31:[function(require,module,exports){
+},{"pathfinding":5}],32:[function(require,module,exports){
 const { UNIT_TYPE, CROSSABLE_TYPE } = require('../const')
 
 function Archer(unit_id) {
@@ -3606,7 +3792,7 @@ function Archer(unit_id) {
 
 module.exports = Archer
 
-},{"../const":27}],32:[function(require,module,exports){
+},{"../const":28}],33:[function(require,module,exports){
 const { UNIT_TYPE, CROSSABLE_TYPE } = require('../const')
 
 function Axeman(unit_id) {
@@ -3623,7 +3809,7 @@ function Axeman(unit_id) {
 
 module.exports = Axeman
 
-},{"../const":27}],33:[function(require,module,exports){
+},{"../const":28}],34:[function(require,module,exports){
 const { UNIT_TYPE, CROSSABLE_TYPE } = require('../const')
 
 function Catapult(unit_id) {
@@ -3640,7 +3826,7 @@ function Catapult(unit_id) {
 
 module.exports = Catapult
 
-},{"../const":27}],34:[function(require,module,exports){
+},{"../const":28}],35:[function(require,module,exports){
 function Flag(flag_id) {
     return {
         flag_id
@@ -3649,7 +3835,7 @@ function Flag(flag_id) {
 }
 module.exports = Flag
 
-},{}],35:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 const { UNIT_TYPE, CROSSABLE_TYPE } = require('../const')
 
 function Horse(unit_id) {
@@ -3666,7 +3852,7 @@ function Horse(unit_id) {
 
 module.exports = Horse
 
-},{"../const":27}],36:[function(require,module,exports){
+},{"../const":28}],37:[function(require,module,exports){
 const { UNIT_TYPE, CROSSABLE_TYPE } = require('../const')
 
 function HorseArcher(unit_id) {
@@ -3683,7 +3869,7 @@ function HorseArcher(unit_id) {
 
 module.exports = HorseArcher
 
-},{"../const":27}],37:[function(require,module,exports){
+},{"../const":28}],38:[function(require,module,exports){
 const { UNIT_TYPE, CROSSABLE_TYPE } = require('../const')
 
 function Slinger(unit_id) {
@@ -3700,7 +3886,7 @@ function Slinger(unit_id) {
 
 module.exports = Slinger
 
-},{"../const":27}],38:[function(require,module,exports){
+},{"../const":28}],39:[function(require,module,exports){
 const { UNIT_TYPE, CROSSABLE_TYPE } = require('../const')
 
 function Spearman(unit_id) {
@@ -3717,7 +3903,7 @@ function Spearman(unit_id) {
 
 module.exports = Spearman
 
-},{"../const":27}],39:[function(require,module,exports){
+},{"../const":28}],40:[function(require,module,exports){
 const { CROSSABLE_TYPE } = require('../const')
 
 function Tile({ x, y, crossable = CROSSABLE_TYPE.WALKABLE }) {
@@ -3729,7 +3915,7 @@ function Tile({ x, y, crossable = CROSSABLE_TYPE.WALKABLE }) {
 }
 module.exports = Tile
 
-},{"../const":27}],40:[function(require,module,exports){
+},{"../const":28}],41:[function(require,module,exports){
 const { UNIT_TYPE, CROSSABLE_TYPE } = require('../const')
 
 function Tower(unit_id) {
@@ -3746,7 +3932,7 @@ function Tower(unit_id) {
 
 module.exports = Tower
 
-},{"../const":27}],41:[function(require,module,exports){
+},{"../const":28}],42:[function(require,module,exports){
 const Tile = require('./Tile')
 const Flag = require('./Flag')
 const Tower = require('./Tower')
@@ -3771,7 +3957,7 @@ module.exports = {
     HorseArcher
 }
 
-},{"./Archer":31,"./Axeman":32,"./Catapult":33,"./Flag":34,"./Horse":35,"./HorseArcher":36,"./Slinger":37,"./Spearman":38,"./Tile":39,"./Tower":40}],42:[function(require,module,exports){
+},{"./Archer":32,"./Axeman":33,"./Catapult":34,"./Flag":35,"./Horse":36,"./HorseArcher":37,"./Slinger":38,"./Spearman":39,"./Tile":40,"./Tower":41}],43:[function(require,module,exports){
 const Game = require('./constructors/Game')
 const Elements = require('./elements')
 const { EVENT, CROSSABLE_TYPE, UNIT_TYPE, UNIT_RELATION } = require('./const')
@@ -3785,38 +3971,46 @@ module.exports = {
     UNIT_RELATION
 }
 
-},{"./const":27,"./constructors/Game":29,"./elements":41}],43:[function(require,module,exports){
+},{"./const":28,"./constructors/Game":30,"./elements":42}],44:[function(require,module,exports){
 const { EVENT, UNIT_TYPE, UNIT_RELATION } = require('../const')
 
 function unitAttack({ action, board }) {
     const { type, params } = action
     if (type === EVENT.UNIT_ATTACK) {
+        const enemies = []
         const { unit_id, tile_id } = params
         const unit_id_enemy = board.getUnitIdByTile({ tile_id })
         const unit = board.getUnit({ unit_id })
         const unit_enemy = board.getUnit({ unit_id: unit_id_enemy })
-        const distance = board.getDistanceFromTiles({
-            tile_id1: unit.tile_id,
-            tile_id2: unit_enemy.tile_id
-        })
-        const [from, to] = unit.range
-        const relation = board.getUnitsRelation({
-            unit_id1: unit_id,
-            unit_id2: unit_id_enemy
-        })
-        const enemies = []
+        if (unit_enemy !== undefined) {
+            const distance = board.getDistanceFromTiles({
+                tile_id1: unit.tile_id,
+                tile_id2: unit_enemy.tile_id
+            })
+            const [from, to] = unit.range
+            const relation = board.getUnitsRelation({
+                unit_id1: unit_id,
+                unit_id2: unit_id_enemy
+            })
 
-        if (
-            relation === UNIT_RELATION.ENEMY &&
-            distance <= to &&
-            distance >= from
-        ) {
-            const unit_type = unit.unit_type
-            const unit_enemy_type = unit_enemy.unit_type
-            const damage =
-                unit.damage + getBonus({ unit_type, unit_enemy_type })
-            const life = unit_enemy.life
-            enemies.push({ unit_id, tile_id, life, damage, distance })
+            if (
+                relation === UNIT_RELATION.ENEMY &&
+                distance <= to &&
+                distance >= from
+            ) {
+                const unit_type = unit.unit_type
+                const unit_enemy_type = unit_enemy.unit_type
+                const damage =
+                    unit.damage + getBonus({ unit_type, unit_enemy_type })
+                const life = unit_enemy.life
+                enemies.push({
+                    unit_id: unit_id_enemy,
+                    tile_id,
+                    life,
+                    damage,
+                    distance
+                })
+            }
         }
         action.params = { ...params, enemies }
     }
@@ -3852,7 +4046,7 @@ function getBonus({ unit_type, unit_enemy_type }) {
 
 module.exports = unitAttack
 
-},{"../const":27}],44:[function(require,module,exports){
+},{"../const":28}],45:[function(require,module,exports){
 const { EVENT, UNIT_RELATION } = require('../const')
 
 function unitSelect({ action, board }) {
@@ -3883,7 +4077,7 @@ function unitSelect({ action, board }) {
 
 module.exports = unitSelect
 
-},{"../const":27}],45:[function(require,module,exports){
+},{"../const":28}],46:[function(require,module,exports){
 const { EVENT } = require('../const')
 
 function unitWalk({ action, board }) {
@@ -3904,7 +4098,7 @@ function unitWalk({ action, board }) {
 
 module.exports = unitWalk
 
-},{"../const":27}],46:[function(require,module,exports){
+},{"../const":28}],47:[function(require,module,exports){
 function getTilesByRange({ x, y, range }) {
     const origin_x = x
     const origin_y = y
@@ -3935,7 +4129,7 @@ function getDistanceFromPoints({ x1, y1, x2, y2 }) {
 
 module.exports = { getTilesByRange, getDistanceFromPoints }
 
-},{}],47:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 function eventToFunction(string) {
     return string
         .toLocaleLowerCase()
@@ -3944,7 +4138,7 @@ function eventToFunction(string) {
 
 module.exports = { eventToFunction }
 
-},{}],48:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 function isValidNumber(number, name) {
     if (typeof number !== 'number') {
         throw `'${name}' must be a number`
@@ -3966,8 +4160,8 @@ function isValidUnique(key, list, name) {
     }
 }
 
-function isValidKey(tile_id, object, name) {
-    if (!object.hasOwnProperty(tile_id)) {
+function isValidKey(key, object, name) {
+    if (!object.hasOwnProperty(key)) {
         throw `'${name}' not found`
     }
 }
@@ -3987,7 +4181,974 @@ module.exports = {
     isValidType
 }
 
-},{}],49:[function(require,module,exports){
-window.Conkis = require('../src')
+},{}],50:[function(require,module,exports){
+window.Conkis = require('conkis-core')
+window.TWEEN = require('@tweenjs/tween.js')
+},{"@tweenjs/tween.js":51,"conkis-core":43}],51:[function(require,module,exports){
+(function (process){
+'use strict';
 
-},{"../src":42}]},{},[49]);
+/**
+ * Tween.js - Licensed under the MIT license
+ * https://github.com/tweenjs/tween.js
+ * ----------------------------------------------
+ *
+ * See https://github.com/tweenjs/tween.js/graphs/contributors for the full list of contributors.
+ * Thank you all, you're awesome!
+ */
+
+
+var _Group = function () {
+	this._tweens = {};
+	this._tweensAddedDuringUpdate = {};
+};
+
+_Group.prototype = {
+	getAll: function () {
+
+		return Object.keys(this._tweens).map(function (tweenId) {
+			return this._tweens[tweenId];
+		}.bind(this));
+
+	},
+
+	removeAll: function () {
+
+		this._tweens = {};
+
+	},
+
+	add: function (tween) {
+
+		this._tweens[tween.getId()] = tween;
+		this._tweensAddedDuringUpdate[tween.getId()] = tween;
+
+	},
+
+	remove: function (tween) {
+
+		delete this._tweens[tween.getId()];
+		delete this._tweensAddedDuringUpdate[tween.getId()];
+
+	},
+
+	update: function (time, preserve) {
+
+		var tweenIds = Object.keys(this._tweens);
+
+		if (tweenIds.length === 0) {
+			return false;
+		}
+
+		time = time !== undefined ? time : TWEEN.now();
+
+		// Tweens are updated in "batches". If you add a new tween during an
+		// update, then the new tween will be updated in the next batch.
+		// If you remove a tween during an update, it may or may not be updated.
+		// However, if the removed tween was added during the current batch,
+		// then it will not be updated.
+		while (tweenIds.length > 0) {
+			this._tweensAddedDuringUpdate = {};
+
+			for (var i = 0; i < tweenIds.length; i++) {
+
+				var tween = this._tweens[tweenIds[i]];
+
+				if (tween && tween.update(time) === false) {
+					tween._isPlaying = false;
+
+					if (!preserve) {
+						delete this._tweens[tweenIds[i]];
+					}
+				}
+			}
+
+			tweenIds = Object.keys(this._tweensAddedDuringUpdate);
+		}
+
+		return true;
+
+	}
+};
+
+var TWEEN = new _Group();
+
+TWEEN.Group = _Group;
+TWEEN._nextId = 0;
+TWEEN.nextId = function () {
+	return TWEEN._nextId++;
+};
+
+
+// Include a performance.now polyfill.
+// In node.js, use process.hrtime.
+if (typeof (self) === 'undefined' && typeof (process) !== 'undefined' && process.hrtime) {
+	TWEEN.now = function () {
+		var time = process.hrtime();
+
+		// Convert [seconds, nanoseconds] to milliseconds.
+		return time[0] * 1000 + time[1] / 1000000;
+	};
+}
+// In a browser, use self.performance.now if it is available.
+else if (typeof (self) !== 'undefined' &&
+         self.performance !== undefined &&
+		 self.performance.now !== undefined) {
+	// This must be bound, because directly assigning this function
+	// leads to an invocation exception in Chrome.
+	TWEEN.now = self.performance.now.bind(self.performance);
+}
+// Use Date.now if it is available.
+else if (Date.now !== undefined) {
+	TWEEN.now = Date.now;
+}
+// Otherwise, use 'new Date().getTime()'.
+else {
+	TWEEN.now = function () {
+		return new Date().getTime();
+	};
+}
+
+
+TWEEN.Tween = function (object, group) {
+	this._isPaused = false;
+	this._pauseStart = null;
+	this._object = object;
+	this._valuesStart = {};
+	this._valuesEnd = {};
+	this._valuesStartRepeat = {};
+	this._duration = 1000;
+	this._repeat = 0;
+	this._repeatDelayTime = undefined;
+	this._yoyo = false;
+	this._isPlaying = false;
+	this._reversed = false;
+	this._delayTime = 0;
+	this._startTime = null;
+	this._easingFunction = TWEEN.Easing.Linear.None;
+	this._interpolationFunction = TWEEN.Interpolation.Linear;
+	this._chainedTweens = [];
+	this._onStartCallback = null;
+	this._onStartCallbackFired = false;
+	this._onUpdateCallback = null;
+	this._onRepeatCallback = null;
+	this._onCompleteCallback = null;
+	this._onStopCallback = null;
+	this._group = group || TWEEN;
+	this._id = TWEEN.nextId();
+
+};
+
+TWEEN.Tween.prototype = {
+	getId: function () {
+		return this._id;
+	},
+
+	isPlaying: function () {
+		return this._isPlaying;
+	},
+
+	isPaused: function () {
+		return this._isPaused;
+	},
+
+	to: function (properties, duration) {
+
+		this._valuesEnd = Object.create(properties);
+
+		if (duration !== undefined) {
+			this._duration = duration;
+		}
+
+		return this;
+
+	},
+
+	duration: function duration(d) {
+		this._duration = d;
+		return this;
+	},
+
+	start: function (time) {
+
+		this._group.add(this);
+
+		this._isPlaying = true;
+
+		this._isPaused = false;
+
+		this._onStartCallbackFired = false;
+
+		this._startTime = time !== undefined ? typeof time === 'string' ? TWEEN.now() + parseFloat(time) : time : TWEEN.now();
+		this._startTime += this._delayTime;
+
+		for (var property in this._valuesEnd) {
+
+			// Check if an Array was provided as property value
+			if (this._valuesEnd[property] instanceof Array) {
+
+				if (this._valuesEnd[property].length === 0) {
+					continue;
+				}
+
+				// Create a local copy of the Array with the start value at the front
+				this._valuesEnd[property] = [this._object[property]].concat(this._valuesEnd[property]);
+
+			}
+
+			// If `to()` specifies a property that doesn't exist in the source object,
+			// we should not set that property in the object
+			if (this._object[property] === undefined) {
+				continue;
+			}
+
+			// Save the starting value, but only once.
+			if (typeof(this._valuesStart[property]) === 'undefined') {
+				this._valuesStart[property] = this._object[property];
+			}
+
+			if ((this._valuesStart[property] instanceof Array) === false) {
+				this._valuesStart[property] *= 1.0; // Ensures we're using numbers, not strings
+			}
+
+			this._valuesStartRepeat[property] = this._valuesStart[property] || 0;
+
+		}
+
+		return this;
+
+	},
+
+	stop: function () {
+
+		if (!this._isPlaying) {
+			return this;
+		}
+
+		this._group.remove(this);
+
+		this._isPlaying = false;
+
+		this._isPaused = false;
+
+		if (this._onStopCallback !== null) {
+			this._onStopCallback(this._object);
+		}
+
+		this.stopChainedTweens();
+		return this;
+
+	},
+
+	end: function () {
+
+		this.update(Infinity);
+		return this;
+
+	},
+
+	pause: function(time) {
+
+		if (this._isPaused || !this._isPlaying) {
+			return this;
+		}
+
+		this._isPaused = true;
+
+		this._pauseStart = time === undefined ? TWEEN.now() : time;
+
+		this._group.remove(this);
+
+		return this;
+
+	},
+
+	resume: function(time) {
+
+		if (!this._isPaused || !this._isPlaying) {
+			return this;
+		}
+
+		this._isPaused = false;
+
+		this._startTime += (time === undefined ? TWEEN.now() : time)
+			- this._pauseStart;
+
+		this._pauseStart = 0;
+
+		this._group.add(this);
+
+		return this;
+
+	},
+
+	stopChainedTweens: function () {
+
+		for (var i = 0, numChainedTweens = this._chainedTweens.length; i < numChainedTweens; i++) {
+			this._chainedTweens[i].stop();
+		}
+
+	},
+
+	group: function (group) {
+		this._group = group;
+		return this;
+	},
+
+	delay: function (amount) {
+
+		this._delayTime = amount;
+		return this;
+
+	},
+
+	repeat: function (times) {
+
+		this._repeat = times;
+		return this;
+
+	},
+
+	repeatDelay: function (amount) {
+
+		this._repeatDelayTime = amount;
+		return this;
+
+	},
+
+	yoyo: function (yoyo) {
+
+		this._yoyo = yoyo;
+		return this;
+
+	},
+
+	easing: function (easingFunction) {
+
+		this._easingFunction = easingFunction;
+		return this;
+
+	},
+
+	interpolation: function (interpolationFunction) {
+
+		this._interpolationFunction = interpolationFunction;
+		return this;
+
+	},
+
+	chain: function () {
+
+		this._chainedTweens = arguments;
+		return this;
+
+	},
+
+	onStart: function (callback) {
+
+		this._onStartCallback = callback;
+		return this;
+
+	},
+
+	onUpdate: function (callback) {
+
+		this._onUpdateCallback = callback;
+		return this;
+
+	},
+
+	onRepeat: function onRepeat(callback) {
+
+		this._onRepeatCallback = callback;
+		return this;
+
+	},
+
+	onComplete: function (callback) {
+
+		this._onCompleteCallback = callback;
+		return this;
+
+	},
+
+	onStop: function (callback) {
+
+		this._onStopCallback = callback;
+		return this;
+
+	},
+
+	update: function (time) {
+
+		var property;
+		var elapsed;
+		var value;
+
+		if (time < this._startTime) {
+			return true;
+		}
+
+		if (this._onStartCallbackFired === false) {
+
+			if (this._onStartCallback !== null) {
+				this._onStartCallback(this._object);
+			}
+
+			this._onStartCallbackFired = true;
+		}
+
+		elapsed = (time - this._startTime) / this._duration;
+		elapsed = (this._duration === 0 || elapsed > 1) ? 1 : elapsed;
+
+		value = this._easingFunction(elapsed);
+
+		for (property in this._valuesEnd) {
+
+			// Don't update properties that do not exist in the source object
+			if (this._valuesStart[property] === undefined) {
+				continue;
+			}
+
+			var start = this._valuesStart[property] || 0;
+			var end = this._valuesEnd[property];
+
+			if (end instanceof Array) {
+
+				this._object[property] = this._interpolationFunction(end, value);
+
+			} else {
+
+				// Parses relative end values with start as base (e.g.: +10, -3)
+				if (typeof (end) === 'string') {
+
+					if (end.charAt(0) === '+' || end.charAt(0) === '-') {
+						end = start + parseFloat(end);
+					} else {
+						end = parseFloat(end);
+					}
+				}
+
+				// Protect against non numeric properties.
+				if (typeof (end) === 'number') {
+					this._object[property] = start + (end - start) * value;
+				}
+
+			}
+
+		}
+
+		if (this._onUpdateCallback !== null) {
+			this._onUpdateCallback(this._object, elapsed);
+		}
+
+		if (elapsed === 1) {
+
+			if (this._repeat > 0) {
+
+				if (isFinite(this._repeat)) {
+					this._repeat--;
+				}
+
+				// Reassign starting values, restart by making startTime = now
+				for (property in this._valuesStartRepeat) {
+
+					if (typeof (this._valuesEnd[property]) === 'string') {
+						this._valuesStartRepeat[property] = this._valuesStartRepeat[property] + parseFloat(this._valuesEnd[property]);
+					}
+
+					if (this._yoyo) {
+						var tmp = this._valuesStartRepeat[property];
+
+						this._valuesStartRepeat[property] = this._valuesEnd[property];
+						this._valuesEnd[property] = tmp;
+					}
+
+					this._valuesStart[property] = this._valuesStartRepeat[property];
+
+				}
+
+				if (this._yoyo) {
+					this._reversed = !this._reversed;
+				}
+
+				if (this._repeatDelayTime !== undefined) {
+					this._startTime = time + this._repeatDelayTime;
+				} else {
+					this._startTime = time + this._delayTime;
+				}
+
+				if (this._onRepeatCallback !== null) {
+					this._onRepeatCallback(this._object);
+				}
+
+				return true;
+
+			} else {
+
+				if (this._onCompleteCallback !== null) {
+
+					this._onCompleteCallback(this._object);
+				}
+
+				for (var i = 0, numChainedTweens = this._chainedTweens.length; i < numChainedTweens; i++) {
+					// Make the chained tweens start exactly at the time they should,
+					// even if the `update()` method was called way past the duration of the tween
+					this._chainedTweens[i].start(this._startTime + this._duration);
+				}
+
+				return false;
+
+			}
+
+		}
+
+		return true;
+
+	}
+};
+
+
+TWEEN.Easing = {
+
+	Linear: {
+
+		None: function (k) {
+
+			return k;
+
+		}
+
+	},
+
+	Quadratic: {
+
+		In: function (k) {
+
+			return k * k;
+
+		},
+
+		Out: function (k) {
+
+			return k * (2 - k);
+
+		},
+
+		InOut: function (k) {
+
+			if ((k *= 2) < 1) {
+				return 0.5 * k * k;
+			}
+
+			return - 0.5 * (--k * (k - 2) - 1);
+
+		}
+
+	},
+
+	Cubic: {
+
+		In: function (k) {
+
+			return k * k * k;
+
+		},
+
+		Out: function (k) {
+
+			return --k * k * k + 1;
+
+		},
+
+		InOut: function (k) {
+
+			if ((k *= 2) < 1) {
+				return 0.5 * k * k * k;
+			}
+
+			return 0.5 * ((k -= 2) * k * k + 2);
+
+		}
+
+	},
+
+	Quartic: {
+
+		In: function (k) {
+
+			return k * k * k * k;
+
+		},
+
+		Out: function (k) {
+
+			return 1 - (--k * k * k * k);
+
+		},
+
+		InOut: function (k) {
+
+			if ((k *= 2) < 1) {
+				return 0.5 * k * k * k * k;
+			}
+
+			return - 0.5 * ((k -= 2) * k * k * k - 2);
+
+		}
+
+	},
+
+	Quintic: {
+
+		In: function (k) {
+
+			return k * k * k * k * k;
+
+		},
+
+		Out: function (k) {
+
+			return --k * k * k * k * k + 1;
+
+		},
+
+		InOut: function (k) {
+
+			if ((k *= 2) < 1) {
+				return 0.5 * k * k * k * k * k;
+			}
+
+			return 0.5 * ((k -= 2) * k * k * k * k + 2);
+
+		}
+
+	},
+
+	Sinusoidal: {
+
+		In: function (k) {
+
+			return 1 - Math.cos(k * Math.PI / 2);
+
+		},
+
+		Out: function (k) {
+
+			return Math.sin(k * Math.PI / 2);
+
+		},
+
+		InOut: function (k) {
+
+			return 0.5 * (1 - Math.cos(Math.PI * k));
+
+		}
+
+	},
+
+	Exponential: {
+
+		In: function (k) {
+
+			return k === 0 ? 0 : Math.pow(1024, k - 1);
+
+		},
+
+		Out: function (k) {
+
+			return k === 1 ? 1 : 1 - Math.pow(2, - 10 * k);
+
+		},
+
+		InOut: function (k) {
+
+			if (k === 0) {
+				return 0;
+			}
+
+			if (k === 1) {
+				return 1;
+			}
+
+			if ((k *= 2) < 1) {
+				return 0.5 * Math.pow(1024, k - 1);
+			}
+
+			return 0.5 * (- Math.pow(2, - 10 * (k - 1)) + 2);
+
+		}
+
+	},
+
+	Circular: {
+
+		In: function (k) {
+
+			return 1 - Math.sqrt(1 - k * k);
+
+		},
+
+		Out: function (k) {
+
+			return Math.sqrt(1 - (--k * k));
+
+		},
+
+		InOut: function (k) {
+
+			if ((k *= 2) < 1) {
+				return - 0.5 * (Math.sqrt(1 - k * k) - 1);
+			}
+
+			return 0.5 * (Math.sqrt(1 - (k -= 2) * k) + 1);
+
+		}
+
+	},
+
+	Elastic: {
+
+		In: function (k) {
+
+			if (k === 0) {
+				return 0;
+			}
+
+			if (k === 1) {
+				return 1;
+			}
+
+			return -Math.pow(2, 10 * (k - 1)) * Math.sin((k - 1.1) * 5 * Math.PI);
+
+		},
+
+		Out: function (k) {
+
+			if (k === 0) {
+				return 0;
+			}
+
+			if (k === 1) {
+				return 1;
+			}
+
+			return Math.pow(2, -10 * k) * Math.sin((k - 0.1) * 5 * Math.PI) + 1;
+
+		},
+
+		InOut: function (k) {
+
+			if (k === 0) {
+				return 0;
+			}
+
+			if (k === 1) {
+				return 1;
+			}
+
+			k *= 2;
+
+			if (k < 1) {
+				return -0.5 * Math.pow(2, 10 * (k - 1)) * Math.sin((k - 1.1) * 5 * Math.PI);
+			}
+
+			return 0.5 * Math.pow(2, -10 * (k - 1)) * Math.sin((k - 1.1) * 5 * Math.PI) + 1;
+
+		}
+
+	},
+
+	Back: {
+
+		In: function (k) {
+
+			var s = 1.70158;
+
+			return k * k * ((s + 1) * k - s);
+
+		},
+
+		Out: function (k) {
+
+			var s = 1.70158;
+
+			return --k * k * ((s + 1) * k + s) + 1;
+
+		},
+
+		InOut: function (k) {
+
+			var s = 1.70158 * 1.525;
+
+			if ((k *= 2) < 1) {
+				return 0.5 * (k * k * ((s + 1) * k - s));
+			}
+
+			return 0.5 * ((k -= 2) * k * ((s + 1) * k + s) + 2);
+
+		}
+
+	},
+
+	Bounce: {
+
+		In: function (k) {
+
+			return 1 - TWEEN.Easing.Bounce.Out(1 - k);
+
+		},
+
+		Out: function (k) {
+
+			if (k < (1 / 2.75)) {
+				return 7.5625 * k * k;
+			} else if (k < (2 / 2.75)) {
+				return 7.5625 * (k -= (1.5 / 2.75)) * k + 0.75;
+			} else if (k < (2.5 / 2.75)) {
+				return 7.5625 * (k -= (2.25 / 2.75)) * k + 0.9375;
+			} else {
+				return 7.5625 * (k -= (2.625 / 2.75)) * k + 0.984375;
+			}
+
+		},
+
+		InOut: function (k) {
+
+			if (k < 0.5) {
+				return TWEEN.Easing.Bounce.In(k * 2) * 0.5;
+			}
+
+			return TWEEN.Easing.Bounce.Out(k * 2 - 1) * 0.5 + 0.5;
+
+		}
+
+	}
+
+};
+
+TWEEN.Interpolation = {
+
+	Linear: function (v, k) {
+
+		var m = v.length - 1;
+		var f = m * k;
+		var i = Math.floor(f);
+		var fn = TWEEN.Interpolation.Utils.Linear;
+
+		if (k < 0) {
+			return fn(v[0], v[1], f);
+		}
+
+		if (k > 1) {
+			return fn(v[m], v[m - 1], m - f);
+		}
+
+		return fn(v[i], v[i + 1 > m ? m : i + 1], f - i);
+
+	},
+
+	Bezier: function (v, k) {
+
+		var b = 0;
+		var n = v.length - 1;
+		var pw = Math.pow;
+		var bn = TWEEN.Interpolation.Utils.Bernstein;
+
+		for (var i = 0; i <= n; i++) {
+			b += pw(1 - k, n - i) * pw(k, i) * v[i] * bn(n, i);
+		}
+
+		return b;
+
+	},
+
+	CatmullRom: function (v, k) {
+
+		var m = v.length - 1;
+		var f = m * k;
+		var i = Math.floor(f);
+		var fn = TWEEN.Interpolation.Utils.CatmullRom;
+
+		if (v[0] === v[m]) {
+
+			if (k < 0) {
+				i = Math.floor(f = m * (1 + k));
+			}
+
+			return fn(v[(i - 1 + m) % m], v[i], v[(i + 1) % m], v[(i + 2) % m], f - i);
+
+		} else {
+
+			if (k < 0) {
+				return v[0] - (fn(v[0], v[0], v[1], v[1], -f) - v[0]);
+			}
+
+			if (k > 1) {
+				return v[m] - (fn(v[m], v[m], v[m - 1], v[m - 1], f - m) - v[m]);
+			}
+
+			return fn(v[i ? i - 1 : 0], v[i], v[m < i + 1 ? m : i + 1], v[m < i + 2 ? m : i + 2], f - i);
+
+		}
+
+	},
+
+	Utils: {
+
+		Linear: function (p0, p1, t) {
+
+			return (p1 - p0) * t + p0;
+
+		},
+
+		Bernstein: function (n, i) {
+
+			var fc = TWEEN.Interpolation.Utils.Factorial;
+
+			return fc(n) / fc(i) / fc(n - i);
+
+		},
+
+		Factorial: (function () {
+
+			var a = [1];
+
+			return function (n) {
+
+				var s = 1;
+
+				if (a[n]) {
+					return a[n];
+				}
+
+				for (var i = n; i > 1; i--) {
+					s *= i;
+				}
+
+				a[n] = s;
+				return s;
+
+			};
+
+		})(),
+
+		CatmullRom: function (p0, p1, p2, p3, t) {
+
+			var v0 = (p2 - p0) * 0.5;
+			var v1 = (p3 - p1) * 0.5;
+			var t2 = t * t;
+			var t3 = t * t2;
+
+			return (2 * p1 - 2 * p2 + v0 + v1) * t3 + (- 3 * p1 + 3 * p2 - 2 * v0 - v1) * t2 + v0 * t + p1;
+
+		}
+
+	}
+
+};
+
+module.exports = TWEEN;
+
+}).call(this,require('_process'))
+},{"_process":2}]},{},[50]);
