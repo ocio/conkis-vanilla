@@ -1,0 +1,170 @@
+<title>Conkis</title>
+<style>
+        #buttons {
+            position: absolute;
+            right: 0;
+        }
+        #units button, #flag_add {
+            width: 30px;
+            height: 30px;
+            background-size: 100%;
+        }
+        #grid {
+            position: relative;
+        }
+        #grid > div {
+            border: 1px solid grey;
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #grid > div > div {
+            box-sizing: border-box;
+            position: absolute;
+            width: calc(100% - 0px);
+            height: calc(100% - 0px);
+            border: 3px solid transparent;
+        }
+        #grid > div > div:hover {
+            border-color: rgba(0, 0, 0, 0.2);
+        }
+        .walkable {
+            background-color: rgb(117, 216, 255) !important;
+        }
+        .attackable {
+            background-color: rgb(247, 134, 134) !important;
+        }
+        .range {
+            background-color: rgb(255, 236, 236) !important;
+        }
+        .selected {
+            background-color: rgb(166, 255, 125) !important;
+        }
+        .unit {
+            pointer-events: none;
+        }
+        .unit span {
+            color: #54ff00;
+            -webkit-text-stroke: 1px #000000;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 22px;
+            position: absolute;
+            display: block;
+            bottom: -5px;
+        }
+
+        .flag {
+            pointer-events: none;
+            border: 0 !important;
+            margin-top: -10px !important;
+        }
+
+        #turns {
+            padding-top: 50px
+        }
+        #turns button {
+            font-weight: bold;
+        }
+        #turns button:disabled {
+            /* color: gray; */
+            /* opacity: 0.5    ; */
+            border-width: 5px
+        }
+        #button_turn1 {
+            color: #007eff;
+            border: 0px solid #007eff
+        }
+        #button_turn2 {
+            color: #ff0036;
+            border: 0px solid #ff0036
+        }
+        #button_turn3 {
+            color: #5a9f00;
+            border: 0px solid #5a9f00
+        }
+        #button_turn4 {
+            color: #f5a100;
+            border: 0px solid #f5a100
+        }
+    </style>
+<body>
+    <div id="buttons">
+        <div id="units">
+            <div>
+                <button style="background-image:url(img/tower1.png)" onclick="unitAdd('tower',1)" />
+                <button style="background-image:url(img/catapult1.png)" onclick="unitAdd('catapult',1)" />
+                <button style="background-image:url(img/horse1.png)" onclick="unitAdd('horse',1)" />
+                <button style="background-image:url(img/spearman1.png)" onclick="unitAdd('spearman',1)" />
+                <button style="background-image:url(img/axeman1.png)" onclick="unitAdd('axeman',1)" />
+                <button style="background-image:url(img/archer1.png)" onclick="unitAdd('archer',1)" />
+                <button style="background-image:url(img/slinger1.png)" onclick="unitAdd('slinger',1)" />
+                <button style="background-image:url(img/horsearcher1.png)" onclick="unitAdd('horsearcher',1)" />
+            </div>
+            <div>
+                <button style="background-image:url(img/tower3.png)" onclick="unitAdd('tower',3)" />
+                <button style="background-image:url(img/catapult3.png)" onclick="unitAdd('catapult',3)" />
+                <button style="background-image:url(img/horse3.png)" onclick="unitAdd('horse',3)" />
+                <button style="background-image:url(img/spearman3.png)" onclick="unitAdd('spearman',3)" />
+                <button style="background-image:url(img/axeman3.png)" onclick="unitAdd('axeman',3)" />
+                <button style="background-image:url(img/archer3.png)" onclick="unitAdd('archer',3)" />
+                <button style="background-image:url(img/slinger3.png)" onclick="unitAdd('slinger',3)" />
+                <button style="background-image:url(img/horsearcher3.png)" onclick="unitAdd('horsearcher',3)" />
+            </div>
+            <br />
+            <div>
+                <button style="background-image:url(img/tower2.png)" onclick="unitAdd('tower',2)" />
+                <button style="background-image:url(img/catapult2.png)" onclick="unitAdd('catapult',2)" />
+                <button style="background-image:url(img/horse2.png)" onclick="unitAdd('horse',2)" />
+                <button style="background-image:url(img/spearman2.png)" onclick="unitAdd('spearman',2)" />
+                <button style="background-image:url(img/axeman2.png)" onclick="unitAdd('axeman',2)" />
+                <button style="background-image:url(img/archer2.png)" onclick="unitAdd('archer',2)" />
+                <button style="background-image:url(img/slinger2.png)" onclick="unitAdd('slinger',2)" />
+                <button style="background-image:url(img/horsearcher2.png)" onclick="unitAdd('horsearcher',2)" />
+            </div>
+            <div>
+                <button style="background-image:url(img/tower4.png)" onclick="unitAdd('tower',4)" />
+                <button style="background-image:url(img/catapult4.png)" onclick="unitAdd('catapult',4)" />
+                <button style="background-image:url(img/horse4.png)" onclick="unitAdd('horse',4)" />
+                <button style="background-image:url(img/spearman4.png)" onclick="unitAdd('spearman',4)" />
+                <button style="background-image:url(img/axeman4.png)" onclick="unitAdd('axeman',4)" />
+                <button style="background-image:url(img/archer4.png)" onclick="unitAdd('archer',4)" />
+                <button style="background-image:url(img/slinger4.png)" onclick="unitAdd('slinger',4)" />
+                <button style="background-image:url(img/horsearcher4.png)" onclick="unitAdd('horsearcher',4)" />
+            </div>
+
+        </div>
+        <div id="turns">
+            <div>
+                <button id="button_turn1" onclick="changeTurn('1')" disabled="disabled">Blue playing</button>
+            </div>
+            <div>
+                <button id="button_turn3" onclick="changeTurn('3')">Green playing</button>
+            </div>
+            <br />
+            <div>
+                <button id="button_turn2" onclick="changeTurn('2')">Red playing</button>
+            </div>
+            <div>
+                <button id="button_turn4" onclick="changeTurn('4')">Orange playing</button>
+            </div>
+            
+            <br />
+            <br />
+            
+            <div>
+                <button id="flag_add" style="background-image:url(img/flag.png)" onclick="flagAdd()" />
+            </div>
+            <br />
+            <div>
+                <label><input id="organizing" type="checkbox" name="checkbox" checked>Organizing</label>
+            </div>
+
+        </div>
+    </div>
+    <div id="grid"></div>
+</body>
+<script src="lib.js"></script>
+<script src="main.js"></script>
+
