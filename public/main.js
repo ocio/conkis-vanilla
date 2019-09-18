@@ -1,7 +1,7 @@
 // const
-const size = 45
-const columns = 15
-const rows = 21
+const size = 41
+const columns = 17
+const rows = 23
 const PLAYER1 = '1'
 const PLAYER2 = '2'
 const PLAYER3 = '3'
@@ -29,8 +29,9 @@ game.playerAdd({ player_id: PLAYER1, team_id: '1' })
 game.playerAdd({ player_id: PLAYER3, team_id: '1' })
 game.playerAdd({ player_id: PLAYER2, team_id: '2' })
 game.playerAdd({ player_id: PLAYER4, team_id: '2' })
-game.on(EVENT.UNIT_ADD, ({ unit_id, life, range }) => {
+game.on(EVENT.UNIT_ADD, ({ unit_id, life, range, movement }) => {
     units[unit_id].range = range
+    units[unit_id].movement = movement
     units[unit_id].changeLife(life)
     updateCounter()
 })
@@ -146,24 +147,44 @@ function onClick(tile_id) {
 function onMouseDown(tile_id) {
     unit_dragging = getUnitByTile(tile_id)
     flag_dragging = getFlagByTile(tile_id)
+    if (unit_dragging !== undefined) flag_dragging = undefined
 }
 function onMouseOver(tile_id) {
+    clearTilesRangeMovement()
     const editing = document.getElementById('editing').checked
-    if (
-        editing &&
-        unit_dragging !== undefined &&
-        getUnitByTile(tile_id) === undefined
-    ) {
+    const unit_id = getUnitByTile(tile_id)
+
+    // MOVEMENT-RANGE
+    if (unit_id !== undefined && unit_selected !== unit_id) {
+        const unit = units[unit_id]
+        const range = [
+            unit.range[0] - unit.movement,
+            unit.range[1] + unit.movement
+        ]
+        game.getTilesByRange({ tile_id, range }).forEach(tile_id => {
+            const className = tiles[tile_id].className
+            if (className === '') {
+                setTileRangeMovement(tile_id)
+            }
+        })
+    }
+
+    // MOVING UNIT
+    if (editing && unit_dragging !== undefined && unit_id === undefined) {
         clearTiles()
         game.unitTile({ unit_id: unit_dragging, tile_id })
-    } else if (
+    }
+    // MOVING FLAG
+    else if (
         editing &&
         flag_dragging !== undefined &&
         getFlagByTile(tile_id) === undefined
     ) {
         clearTiles()
         game.flagTile({ flag_id: flag_dragging, tile_id })
-    } else if (unit_selected !== undefined) {
+    }
+    // RANGE
+    else if (unit_selected !== undefined) {
         clearTilesRange()
         const unit = units[unit_selected]
         const tile_id_origin =
@@ -421,6 +442,9 @@ function setTileRange(tile_id) {
 function setTileSelected(tile_id) {
     tiles[tile_id].className = 'selected'
 }
+function setTileRangeMovement(tile_id) {
+    tiles[tile_id].className = 'rangemovement'
+}
 function clearTiles() {
     for (const tile_id in tiles) {
         tiles[tile_id].className = ''
@@ -429,6 +453,12 @@ function clearTiles() {
 function clearTilesRange() {
     for (const tile_id in tiles) {
         if (tiles[tile_id].className === 'range') tiles[tile_id].className = ''
+    }
+}
+function clearTilesRangeMovement() {
+    for (const tile_id in tiles) {
+        if (tiles[tile_id].className === 'rangemovement')
+            tiles[tile_id].className = ''
     }
 }
 
