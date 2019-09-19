@@ -3292,7 +3292,8 @@ const EVENT = {
     // THEESE EVENTS EMIT BUT DON'T MUTATE THE STATE
     UNIT_SELECT: 'UNIT_SELECT',
     UNIT_WALK: 'UNIT_WALK',
-    UNIT_ATTACK: 'UNIT_ATTACK'
+    UNIT_ATTACK: 'UNIT_ATTACK',
+    UNIT_INFO: 'UNIT_INFO'
 }
 
 module.exports = EVENT
@@ -3332,11 +3333,21 @@ module.exports = {
 
 },{"./events":27}],29:[function(require,module,exports){
 // https://alligator.io/js/class-composition/
-const { CROSSABLE_TYPE, UNIT_RELATION } = require('../const')
+const { CROSSABLE_TYPE, UNIT_RELATION, UNIT_TYPE } = require('../const')
 const { PathFinder } = require('./PathFinder')
 const { getTilesByRange, getDistanceFromPoints } = require('../utils/math')
 const Tile = require('../elements/Tile')
 const Flag = require('../elements/Flag')
+const {
+    HORSE,
+    SPEARMAN,
+    AXEMAN,
+    ARCHER,
+    SLINGER,
+    HORSEARCHER,
+    TOWER,
+    CATAPULT
+} = UNIT_TYPE
 
 function Board({ columns, rows }) {
     const board = {}
@@ -3511,6 +3522,29 @@ function Board({ columns, rows }) {
         return UNIT_RELATION.ENEMY
     }
 
+    board.getUnitsDamage = ({ unit_id1, unit_id2 }) => {
+        const relation = board.getUnitsRelation({ unit_id1, unit_id2 })
+        if (relation !== UNIT_RELATION.ENEMY) {
+            return { unit_id1: 0, unit_id2: 0 }
+        } else {
+            const unit1 = board.units[unit_id1]
+            const unit2 = board.units[unit_id2]
+            const damage1 =
+                unit1.damage +
+                getBonus({
+                    unit_type: unit1.unit_type,
+                    unit_enemy_type: unit2.unit_type
+                })
+            const damage2 =
+                unit2.damage +
+                getBonus({
+                    unit_type: unit2.unit_type,
+                    unit_enemy_type: unit1.unit_type
+                })
+            return { unit_id1: damage1, unit_id2: damage2 }
+        }
+    }
+
     board.getWalkableTilesByMovement = ({ tile_id, movement }) => {
         const tiles = board
             .getTilesByRange({ tile_id, range: [1, movement] })
@@ -3547,11 +3581,28 @@ function getTileId(x, y) {
     return `${x}.${y}`
 }
 
-},{"../const":28,"../elements/Flag":35,"../elements/Tile":40,"../utils/math":47,"./PathFinder":31}],30:[function(require,module,exports){
+function getBonus({ unit_type, unit_enemy_type }) {
+    if (
+        (unit_type === HORSE && unit_enemy_type === HORSEARCHER) ||
+        (unit_type === HORSEARCHER && unit_enemy_type === SLINGER) ||
+        (unit_type === SLINGER && unit_enemy_type === ARCHER) ||
+        (unit_type === ARCHER && unit_enemy_type === AXEMAN) ||
+        (unit_type === AXEMAN && unit_enemy_type === SPEARMAN) ||
+        (unit_type === SPEARMAN && unit_enemy_type === HORSE) ||
+        (unit_type === CATAPULT &&
+            (unit_enemy_type === TOWER || unit_enemy_type === CATAPULT))
+    ) {
+        return 1
+    }
+    return 0
+}
+
+},{"../const":28,"../elements/Flag":35,"../elements/Tile":40,"../utils/math":48,"./PathFinder":31}],30:[function(require,module,exports){
 const EventEmitter = require('events')
 const { EVENT } = require('../const')
 const { eventToFunction } = require('../utils/string')
 const Board = require('./Board')
+const unitInfo = require('../rules/unitInfo')
 const unitSelect = require('../rules/unitSelect')
 const unitWalk = require('../rules/unitWalk')
 const unitAttack = require('../rules/unitAttack')
@@ -3567,7 +3618,7 @@ function Game({ columns, rows }) {
     isValidNumber(rows, 'rows')
     const game = new EventEmitter()
     const board = Board({ columns, rows })
-    const rules = [unitSelect, unitWalk, unitAttack]
+    const rules = [unitInfo, unitSelect, unitWalk, unitAttack]
     const history = []
 
     function runActions(actions, index = 0) {
@@ -3654,6 +3705,11 @@ function Game({ columns, rows }) {
         runActions([{ type: EVENT.UNIT_ATTACK, params: { unit_id, tile_id } }])
     }
 
+    game.unitInfo = ({ unit_id }) => {
+        isValidKey(unit_id, board.units, 'unit_id')
+        runActions([{ type: EVENT.UNIT_INFO, params: { unit_id } }])
+    }
+
     game.flagAdd = flag => {
         const { flag_id } = flag
         isValidString(flag_id, 'flag_id')
@@ -3684,7 +3740,7 @@ function Game({ columns, rows }) {
 
 module.exports = Game
 
-},{"../const":28,"../rules/unitAttack":44,"../rules/unitSelect":45,"../rules/unitWalk":46,"../utils/string":48,"../utils/validators":49,"./Board":29,"events":1}],31:[function(require,module,exports){
+},{"../const":28,"../rules/unitAttack":44,"../rules/unitInfo":45,"../rules/unitSelect":46,"../rules/unitWalk":47,"../utils/string":49,"../utils/validators":50,"./Board":29,"events":1}],31:[function(require,module,exports){
 // This library is not performant. We should use another library in the future.
 // The reason is because we have to make a grid.clone() every time we want to findPath()
 // https://github.com/qiao/PathFinding.js/issues/33
@@ -3972,7 +4028,7 @@ module.exports = {
 }
 
 },{"./const":28,"./constructors/Game":30,"./elements":42}],44:[function(require,module,exports){
-const { EVENT, UNIT_TYPE, UNIT_RELATION } = require('../const')
+const { EVENT, UNIT_TYPE } = require('../const')
 
 function unitAttack({ action, board }) {
     const { type, params } = action
@@ -3987,21 +4043,14 @@ function unitAttack({ action, board }) {
                 tile_id1: unit.tile_id,
                 tile_id2: unit_enemy.tile_id
             })
-            const [from, to] = unit.range
-            const relation = board.getUnitsRelation({
+            const damages = board.getUnitsDamage({
                 unit_id1: unit_id,
                 unit_id2: unit_id_enemy
             })
+            const [from, to] = unit.range
+            const damage = damages.unit_id1
 
-            if (
-                relation === UNIT_RELATION.ENEMY &&
-                distance <= to &&
-                distance >= from
-            ) {
-                const unit_type = unit.unit_type
-                const unit_enemy_type = unit_enemy.unit_type
-                const damage =
-                    unit.damage + getBonus({ unit_type, unit_enemy_type })
+            if (damage > 0 && distance <= to && distance >= from) {
                 const life = unit_enemy.life
                 enemies.push({
                     unit_id: unit_id_enemy,
@@ -4017,36 +4066,53 @@ function unitAttack({ action, board }) {
     return action
 }
 
-const {
-    HORSE,
-    SPEARMAN,
-    AXEMAN,
-    ARCHER,
-    SLINGER,
-    HORSEARCHER,
-    TOWER,
-    CATAPULT
-} = UNIT_TYPE
-
-function getBonus({ unit_type, unit_enemy_type }) {
-    if (
-        (unit_type === HORSE && unit_enemy_type === HORSEARCHER) ||
-        (unit_type === HORSEARCHER && unit_enemy_type === SLINGER) ||
-        (unit_type === SLINGER && unit_enemy_type === ARCHER) ||
-        (unit_type === ARCHER && unit_enemy_type === AXEMAN) ||
-        (unit_type === AXEMAN && unit_enemy_type === SPEARMAN) ||
-        (unit_type === SPEARMAN && unit_enemy_type === HORSE) ||
-        (unit_type === CATAPULT &&
-            (unit_enemy_type === TOWER || unit_enemy_type === CATAPULT))
-    ) {
-        return 1
-    }
-    return 0
-}
-
 module.exports = unitAttack
 
 },{"../const":28}],45:[function(require,module,exports){
+const { EVENT, UNIT_TYPE, UNIT_RELATION } = require('../const')
+
+function unitInfo({ action, board }) {
+    const { type, params } = action
+    if (type === EVENT.UNIT_INFO) {
+        const enemies = []
+        const { unit_id } = params
+        const unit = board.getUnit({ unit_id })
+        const tile_id = unit.tile_id
+        const range = [
+            unit.range[0] - unit.movement || 1,
+            unit.range[1] + unit.movement
+        ]
+        if (range[0] < 1) range[0] = 1
+        board.getTilesByRange({ tile_id, range }).forEach(tile_id => {
+            const unit_id_enemy = board.getUnitIdByTile({ tile_id })
+            if (unit_id_enemy !== undefined) {
+                // const distance = board.getDistanceFromTiles({
+                //     tile_id1: unit.tile_id,
+                //     tile_id2: unit_enemy.tile_id
+                // })
+                const unit_enemy = board.getUnit({ unit_id: unit_id_enemy })
+                const damage = board.getUnitsDamage({
+                    unit_id1: unit_id,
+                    unit_id2: unit_id_enemy
+                })
+                if (damage.unit_id1 > 0) {
+                    enemies.push({
+                        unit_id: unit_id_enemy,
+                        tile_id,
+                        life: unit_enemy.life,
+                        damage: damage.unit_id1
+                    })
+                }
+            }
+        })
+        action.params = { ...params, tile_id, range, enemies }
+    }
+    return action
+}
+
+module.exports = unitInfo
+
+},{"../const":28}],46:[function(require,module,exports){
 const { EVENT, UNIT_RELATION } = require('../const')
 
 function unitSelect({ action, board }) {
@@ -4077,7 +4143,7 @@ function unitSelect({ action, board }) {
 
 module.exports = unitSelect
 
-},{"../const":28}],46:[function(require,module,exports){
+},{"../const":28}],47:[function(require,module,exports){
 const { EVENT } = require('../const')
 
 function unitWalk({ action, board }) {
@@ -4098,7 +4164,7 @@ function unitWalk({ action, board }) {
 
 module.exports = unitWalk
 
-},{"../const":28}],47:[function(require,module,exports){
+},{"../const":28}],48:[function(require,module,exports){
 function getTilesByRange({ x, y, range }) {
     const origin_x = x
     const origin_y = y
@@ -4129,7 +4195,7 @@ function getDistanceFromPoints({ x1, y1, x2, y2 }) {
 
 module.exports = { getTilesByRange, getDistanceFromPoints }
 
-},{}],48:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 function eventToFunction(string) {
     return string
         .toLocaleLowerCase()
@@ -4138,7 +4204,7 @@ function eventToFunction(string) {
 
 module.exports = { eventToFunction }
 
-},{}],49:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
 function isValidNumber(number, name) {
     if (typeof number !== 'number') {
         throw `'${name}' must be a number`
@@ -4181,10 +4247,10 @@ module.exports = {
     isValidType
 }
 
-},{}],50:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 window.Conkis = require('conkis-core')
 window.TWEEN = require('@tweenjs/tween.js')
-},{"@tweenjs/tween.js":51,"conkis-core":43}],51:[function(require,module,exports){
+},{"@tweenjs/tween.js":52,"conkis-core":43}],52:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -5151,4 +5217,4 @@ TWEEN.Interpolation = {
 module.exports = TWEEN;
 
 }).call(this,require('_process'))
-},{"_process":2}]},{},[50]);
+},{"_process":2}]},{},[51]);

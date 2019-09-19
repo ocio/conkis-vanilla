@@ -1,7 +1,7 @@
 // const
-const size = 41
-const columns = 17
-const rows = 23
+const size = 33
+const columns = 21
+const rows = 25
 const PLAYER1 = '1'
 const PLAYER2 = '2'
 const PLAYER3 = '3'
@@ -46,6 +46,21 @@ game.on(EVENT.UNIT_TILE, ({ unit_id, tile_id }) => {
         game.flagPlayer({ flag_id, player_id })
     }
 })
+game.on(EVENT.UNIT_INFO, ({ tile_id, range, enemies }) => {
+    if (unit_selected === undefined) {
+        game.getTilesByRange({ tile_id, range }).forEach(tile_id => {
+            const className = tiles[tile_id].className
+            if (className === '') {
+                setTileRangeMovement(tile_id)
+            }
+        })
+        if (enemies.length > 0) {
+            enemies.forEach(({ unit_id, damage, life }) => {
+                units[unit_id].changeDamagetaken(damage)
+            })
+        }
+    }
+})
 game.on(EVENT.UNIT_SELECT, ({ unit_id, walkables, attackables }) => {
     const { range, tile_id } = units[unit_id]
     unit_tiles_rangeables = walkables.slice(0)
@@ -68,13 +83,16 @@ game.on(EVENT.UNIT_WALK, ({ unit_id, path, movement }) => {
     }
 })
 game.on(EVENT.UNIT_ATTACK, ({ enemies }) => {
-    enemies.forEach(({ life, damage, unit_id }) => {
-        const newlife = life - damage
-        if (newlife < 1) game.unitDie({ unit_id })
-        else game.unitLife({ unit_id, life: newlife })
-    })
-    if (enemies.length > 0) turn_attacks.push(unit_selected)
+    if (enemies.length > 0) {
+        turn_attacks.push(unit_selected)
+        enemies.forEach(({ life, damage, unit_id }) => {
+            const newlife = life - damage
+            if (newlife < 1) game.unitDie({ unit_id })
+            else game.unitLife({ unit_id, life: newlife })
+        })
+    }
 })
+
 game.on(EVENT.UNIT_LIFE, ({ unit_id, life }) => {
     units[unit_id].changeLife(life)
 })
@@ -99,8 +117,9 @@ function changeTurn(player_id) {
     }
 }
 
-function onClick(tile_id) {
+function onClick(tile_id, e) {
     clearTiles()
+    clearDamageTaken()
     const unit_id = getUnitByTile(tile_id)
     if (unit_id !== undefined) {
         const unit = units[unit_id]
@@ -142,6 +161,8 @@ function onClick(tile_id) {
     else {
         unit_selected = undefined
     }
+
+    if (e) e.stopPropagation()
 }
 
 function onMouseDown(tile_id) {
@@ -151,23 +172,9 @@ function onMouseDown(tile_id) {
 }
 function onMouseOver(tile_id) {
     clearTilesRangeMovement()
+    clearDamageTaken()
     const editing = document.getElementById('editing').checked
     const unit_id = getUnitByTile(tile_id)
-
-    // MOVEMENT-RANGE
-    if (unit_id !== undefined && unit_selected !== unit_id) {
-        const unit = units[unit_id]
-        const range = [
-            unit.range[0] - unit.movement,
-            unit.range[1] + unit.movement
-        ]
-        game.getTilesByRange({ tile_id, range }).forEach(tile_id => {
-            const className = tiles[tile_id].className
-            if (className === '') {
-                setTileRangeMovement(tile_id)
-            }
-        })
-    }
 
     // MOVING UNIT
     if (editing && unit_dragging !== undefined && unit_id === undefined) {
@@ -183,6 +190,7 @@ function onMouseOver(tile_id) {
         clearTiles()
         game.flagTile({ flag_id: flag_dragging, tile_id })
     }
+
     // RANGE
     else if (unit_selected !== undefined) {
         clearTilesRange()
@@ -193,15 +201,21 @@ function onMouseOver(tile_id) {
             !turn_walks.includes(unit_selected)
                 ? tile_id
                 : unit.tile_id
+
+        game.unitInfo({ unit_id: unit_selected })
         game.getTilesByRange({
             tile_id: tile_id_origin,
             range: unit.range
         }).forEach(tile_id => {
-            const className = tiles[tile_id].className
-            if (className === '') {
+            if (tiles[tile_id].className === '') {
                 setTileRange(tile_id)
             }
         })
+    }
+
+    // MOVEMENT-RANGE
+    if (unit_id !== undefined && unit_selected === undefined) {
+        game.unitInfo({ unit_id })
     }
 }
 function onMouseUp(tile_id, e) {
@@ -271,7 +285,11 @@ function createUnit({ img }) {
     div.style.height = `${size}px`
     div.style.background = `url('${img}') center center / 100% 100%`
     const life = document.createElement('span')
+    life.className = 'life'
     div.appendChild(life)
+    const damagetaken = document.createElement('span')
+    damagetaken.className = 'damagetaken'
+    div.appendChild(damagetaken)
     document.getElementById('grid').appendChild(div)
     const object = {
         changePosition: tile_id => {
@@ -314,6 +332,11 @@ function createUnit({ img }) {
         },
         changeLife: l => {
             life.innerHTML = l
+        },
+        changeDamagetaken: damage => {
+            damagetaken.innerHTML = `-${damage}`
+            damagetaken.style.display =
+                String(damage).length > 0 ? 'block' : 'none'
         },
         die: () => {
             document.getElementById('grid').removeChild(div)
@@ -445,6 +468,9 @@ function setTileSelected(tile_id) {
 function setTileRangeMovement(tile_id) {
     tiles[tile_id].className = 'rangemovement'
 }
+function setTileRangeMovementUnit(tile_id) {
+    tiles[tile_id].className = 'rangemovementunit'
+}
 function clearTiles() {
     for (const tile_id in tiles) {
         tiles[tile_id].className = ''
@@ -457,8 +483,16 @@ function clearTilesRange() {
 }
 function clearTilesRangeMovement() {
     for (const tile_id in tiles) {
-        if (tiles[tile_id].className === 'rangemovement')
+        if (
+            tiles[tile_id].className === 'rangemovement' ||
+            tiles[tile_id].className === 'rangemovementunit'
+        )
             tiles[tile_id].className = ''
+    }
+}
+function clearDamageTaken() {
+    for (const unit_id in units) {
+        units[unit_id].changeDamagetaken('')
     }
 }
 
@@ -467,3 +501,9 @@ function animate(time) {
     TWEEN.update(time)
 }
 requestAnimationFrame(animate)
+
+document.body.onclick = function() {
+    clearTiles()
+    clearDamageTaken()
+    unit_selected = undefined
+}
