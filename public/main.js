@@ -46,29 +46,35 @@ game.on(EVENT.UNIT_TILE, ({ unit_id, tile_id }) => {
         game.flagPlayer({ flag_id, player_id })
     }
 })
-game.on(EVENT.UNIT_INFO, ({ tile_id, range, rangemovement, enemies }) => {
-    if (unit_selected === undefined) {
-        game.getTilesByRange({ tile_id, range }).forEach(tile_id => {
-            const className = tiles[tile_id].className
-            if (className === '') {
-                setTileRangeMovementDark(tile_id)
-            }
-        })
-        game.getTilesByRange({ tile_id, range: rangemovement }).forEach(
-            tile_id => {
+game.on(
+    EVENT.UNIT_INFO,
+    ({ tile_id, unit_id, range, rangemovement, enemies }) => {
+        if (
+            unit_selected === undefined ||
+            (unit_selected !== undefined && unit_selected !== unit_id)
+        ) {
+            game.getTilesByRange({ tile_id, range }).forEach(tile_id => {
                 const className = tiles[tile_id].className
                 if (className === '') {
-                    setTileRangeMovement(tile_id)
+                    setTileRangeMovementDark(tile_id)
                 }
-            }
-        )
-        if (enemies.length > 0) {
-            enemies.forEach(({ unit_id, damage, life }) => {
-                units[unit_id].changeDamagetaken(damage, life - damage < 1)
             })
+            game.getTilesByRange({ tile_id, range: rangemovement }).forEach(
+                tile_id => {
+                    const className = tiles[tile_id].className
+                    if (className === '') {
+                        setTileRangeMovement(tile_id)
+                    }
+                }
+            )
+            if (enemies.length > 0) {
+                enemies.forEach(({ unit_id, damage, life }) => {
+                    units[unit_id].changeDamagetaken(damage, life - damage < 1)
+                })
+            }
         }
     }
-})
+)
 game.on(EVENT.UNIT_SELECT, ({ unit_id, walkables, attackables }) => {
     const { range, tile_id } = units[unit_id]
     unit_tiles_rangeables = walkables.slice(0)
@@ -222,7 +228,7 @@ function onMouseOver(tile_id) {
     }
 
     // MOVEMENT-RANGE
-    if (unit_id !== undefined && unit_selected === undefined) {
+    if (unit_id !== undefined) {
         game.unitInfo({ unit_id })
     }
 }
