@@ -22,7 +22,6 @@ let unit_tiles_rangeables = []
 let unit_range_selected
 let unit_dragging
 let flag_dragging
-let enemies_info = []
 
 const { Game, EVENT, Elements, UNIT_TYPE } = Conkis
 const game = new Game({ columns, rows })
@@ -65,33 +64,25 @@ game.on(EVENT.UNIT_INFO, ({ tile_id, range, rangemovement, enemies }) => {
         )
         if (enemies.length > 0) {
             enemies.forEach(({ unit_id, damage, life }) => {
-                units[unit_id].changeDamagetaken(damage)
+                units[unit_id].changeDamagetaken(damage, life - damage < 1)
             })
-            game.getTilesByRange({ tile_id, range: rangemovement }).forEach(
-                tile_id => {
-                    const className = tiles[tile_id].className
-                    if (className === '') {
-                        setTileRangeMovement(tile_id)
-                    }
-                }
-            )
-            if (enemies.length > 0 && unit_selected === undefined) {
-                enemies.forEach(({ unit_id, damage, life }) => {
-                    const death = life - damage < 1
-                    units[unit_id].changeDamagetaken(damage, death)
-                })
-            }
         }
     }
-)
+})
 game.on(EVENT.UNIT_SELECT, ({ unit_id, walkables, attackables }) => {
     const { range, tile_id } = units[unit_id]
     unit_tiles_rangeables = walkables.slice(0)
     unit_tiles_rangeables.push(tile_id)
+    game.getTilesByRange({ tile_id, range }).forEach(tile_id => {
+        // if (getUnitByTile(tile_id) === undefined)
+        setTileRange(tile_id)
+    })
     if (!turn_attacks.includes(unit_id) && !turn_walks.includes(unit_id)) {
         walkables.forEach(tile_id => setTileWalkable(tile_id))
     }
-    showTilesRange({ tile_id, range })
+    if (!turn_attacks.includes(unit_id)) {
+        attackables.forEach(({ tile_id }) => setTileAttackable(tile_id))
+    }
 })
 game.on(EVENT.UNIT_WALK, ({ unit_id, path, movement }) => {
     if (movement >= path.length) {
@@ -146,7 +137,6 @@ function onClick(tile_id, e) {
             unit_selected = unit_id
             setTileSelected(tile_id)
             game.unitSelect({ unit_id })
-            // game.unitInfo({ unit_id })
         }
 
         // ATTACK
@@ -220,14 +210,19 @@ function onMouseOver(tile_id) {
                 ? tile_id
                 : unit.tile_id
 
-        showTilesRange({
+        game.unitInfo({ unit_id: unit_selected })
+        game.getTilesByRange({
             tile_id: tile_id_origin,
             range: unit.range
+        }).forEach(tile_id => {
+            if (tiles[tile_id].className === '') {
+                setTileRange(tile_id)
+            }
         })
     }
 
     // MOVEMENT-RANGE
-    if (unit_id !== undefined) {
+    if (unit_id !== undefined && unit_selected === undefined) {
         game.unitInfo({ unit_id })
     }
 }
@@ -346,18 +341,18 @@ function createUnit({ img }) {
         changeLife: l => {
             life.innerHTML = l
         },
-        changeDamagetaken: (damage, death) => {
-            // if (String(damage).length === 0) {
-            //     damagetaken.style.display = 'none'
-            // } else {
-            //     damagetaken.style.display = 'block'
-            //     damagetaken.innerHTML = `-${damage}`
-            //     damagetaken.style.color = death
-            //         ? 'black'
-            //         : damage > 1
-            //         ? 'red'
-            //         : 'goldenrod'
-            // }
+        changeDamagetaken: (damage, death = false) => {
+            if (String(damage).length === 0) {
+                damagetaken.style.display = 'none'
+            } else {
+                damagetaken.style.display = 'block'
+                damagetaken.innerHTML = `-${damage}`
+                damagetaken.style.color = death
+                    ? 'black'
+                    : damage > 1
+                    ? 'red'
+                    : 'goldenrod'
+            }
         },
         die: () => {
             document.getElementById('grid').removeChild(div)
@@ -388,20 +383,6 @@ function createFlag() {
         }
     }
     return object
-}
-
-function showTilesRange({ tile_id, range }) {
-    game.getTilesByRange({ tile_id, range }).forEach(tile_id => {
-        // if (getUnitByTile(tile_id) === undefined)
-        const enemy = enemies_info.find(enemy => enemy.tile_id === tile_id)
-        if (enemy !== undefined && !turn_attacks.includes(unit_selected)) {
-            // const death = enemy.life - enemy.damage < 1
-            // units[enemy.unit_id].changeDamagetaken(enemy.damage, death)
-            // death ? setTileDeath(tile_id) : setTileAttackable(tile_id)
-        } else if (tiles[tile_id].className !== 'walkable') {
-            setTileRange(tile_id)
-        }
-    })
 }
 
 function createUnitObject({ unit_type, unit_id }) {
@@ -488,20 +469,17 @@ function createGrid() {
 }
 createGrid()
 
-function setTileSelected(tile_id) {
-    tiles[tile_id].className = 'selected'
-}
 function setTileWalkable(tile_id) {
     tiles[tile_id].className = 'walkable'
 }
 function setTileAttackable(tile_id) {
     tiles[tile_id].className = 'attackable'
 }
-function setTileDeath(tile_id) {
-    tiles[tile_id].className = 'death'
-}
 function setTileRange(tile_id) {
     tiles[tile_id].className = 'range'
+}
+function setTileSelected(tile_id) {
+    tiles[tile_id].className = 'selected'
 }
 function setTileRangeMovement(tile_id) {
     tiles[tile_id].className = 'rangemovement'
@@ -516,13 +494,7 @@ function clearTiles() {
 }
 function clearTilesRange() {
     for (const tile_id in tiles) {
-        const className = tiles[tile_id].className
-        if (
-            className === 'range' ||
-            className === 'attackable' ||
-            className === 'death'
-        )
-            tiles[tile_id].className = ''
+        if (tiles[tile_id].className === 'range') tiles[tile_id].className = ''
     }
 }
 function clearTilesRangeMovement() {
