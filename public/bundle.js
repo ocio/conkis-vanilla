@@ -4076,36 +4076,36 @@ function unitInfo({ action, board }) {
     if (type === EVENT.UNIT_INFO) {
         const enemies = []
         const { unit_id } = params
-        const unit = board.getUnit({ unit_id })
-        const tile_id = unit.tile_id
-        const range = [
-            unit.range[0] - unit.movement || 1,
-            unit.range[1] + unit.movement
-        ]
-        if (range[0] < 1) range[0] = 1
-        board.getTilesByRange({ tile_id, range }).forEach(tile_id => {
-            const unit_id_enemy = board.getUnitIdByTile({ tile_id })
-            if (unit_id_enemy !== undefined) {
-                // const distance = board.getDistanceFromTiles({
-                //     tile_id1: unit.tile_id,
-                //     tile_id2: unit_enemy.tile_id
-                // })
-                const unit_enemy = board.getUnit({ unit_id: unit_id_enemy })
-                const damage = board.getUnitsDamage({
-                    unit_id1: unit_id,
-                    unit_id2: unit_id_enemy
-                })
-                if (damage.unit_id1 > 0) {
-                    enemies.push({
-                        unit_id: unit_id_enemy,
-                        tile_id,
-                        life: unit_enemy.life,
-                        damage: damage.unit_id1
+        const { range, movement, tile_id } = board.getUnit({ unit_id })
+        const rangemovement = [range[0] - movement || 1, range[1] + movement]
+        if (rangemovement[0] < 1) {
+            rangemovement[0] = 1
+        }
+        board
+            .getTilesByRange({ tile_id, range: rangemovement })
+            .forEach(tile_id => {
+                const unit_id_enemy = board.getUnitIdByTile({ tile_id })
+                if (unit_id_enemy !== undefined) {
+                    // const distance = board.getDistanceFromTiles({
+                    //     tile_id1: unit.tile_id,
+                    //     tile_id2: unit_enemy.tile_id
+                    // })
+                    const unit_enemy = board.getUnit({ unit_id: unit_id_enemy })
+                    const damage = board.getUnitsDamage({
+                        unit_id1: unit_id,
+                        unit_id2: unit_id_enemy
                     })
+                    if (damage.unit_id1 > 0) {
+                        enemies.push({
+                            unit_id: unit_id_enemy,
+                            tile_id,
+                            life: unit_enemy.life,
+                            damage: damage.unit_id1
+                        })
+                    }
                 }
-            }
-        })
-        action.params = { ...params, tile_id, range, enemies }
+            })
+        action.params = { ...params, tile_id, range, rangemovement, enemies }
     }
     return action
 }

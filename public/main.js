@@ -46,14 +46,22 @@ game.on(EVENT.UNIT_TILE, ({ unit_id, tile_id }) => {
         game.flagPlayer({ flag_id, player_id })
     }
 })
-game.on(EVENT.UNIT_INFO, ({ tile_id, range, enemies }) => {
+game.on(EVENT.UNIT_INFO, ({ tile_id, range, rangemovement, enemies }) => {
     if (unit_selected === undefined) {
         game.getTilesByRange({ tile_id, range }).forEach(tile_id => {
             const className = tiles[tile_id].className
             if (className === '') {
-                setTileRangeMovement(tile_id)
+                setTileRangeMovementDark(tile_id)
             }
         })
+        game.getTilesByRange({ tile_id, range: rangemovement }).forEach(
+            tile_id => {
+                const className = tiles[tile_id].className
+                if (className === '') {
+                    setTileRangeMovement(tile_id)
+                }
+            }
+        )
         if (enemies.length > 0) {
             enemies.forEach(({ unit_id, damage, life }) => {
                 units[unit_id].changeDamagetaken(damage)
@@ -468,8 +476,8 @@ function setTileSelected(tile_id) {
 function setTileRangeMovement(tile_id) {
     tiles[tile_id].className = 'rangemovement'
 }
-function setTileRangeMovementUnit(tile_id) {
-    tiles[tile_id].className = 'rangemovementunit'
+function setTileRangeMovementDark(tile_id) {
+    tiles[tile_id].className = 'rangemovementdark'
 }
 function clearTiles() {
     for (const tile_id in tiles) {
@@ -485,7 +493,7 @@ function clearTilesRangeMovement() {
     for (const tile_id in tiles) {
         if (
             tiles[tile_id].className === 'rangemovement' ||
-            tiles[tile_id].className === 'rangemovementunit'
+            tiles[tile_id].className === 'rangemovementdark'
         )
             tiles[tile_id].className = ''
     }
