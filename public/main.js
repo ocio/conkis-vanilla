@@ -47,26 +47,37 @@ game.on(EVENT.UNIT_TILE, ({ unit_id, tile_id }) => {
         game.flagPlayer({ flag_id, player_id })
     }
 })
-game.on(EVENT.UNIT_INFO, ({ tile_id, unit_id, range, enemies }) => {
-    // enemies_info = enemies
-    if (
-        unit_selected === undefined ||
-        (unit_selected !== undefined && unit_id !== unit_selected)
-    ) {
-        game.getTilesByRange({ tile_id, range }).forEach(tile_id => {
-            const className = tiles[tile_id].className
-            if (className === '') {
-                setTileRangeMovement(tile_id)
-            }
-        })
-        if (enemies.length > 0 && unit_selected === undefined) {
-            enemies.forEach(({ unit_id, damage, life }) => {
-                const death = life - damage < 1
-                units[unit_id].changeDamagetaken(damage, death)
+game.on(
+    EVENT.UNIT_INFO,
+    ({ tile_id, unit_id, range, rangemovement, enemies }) => {
+        // enemies_info = enemies
+        if (
+            unit_selected === undefined ||
+            (unit_selected !== undefined && unit_id !== unit_selected)
+        ) {
+            game.getTilesByRange({ tile_id, range }).forEach(tile_id => {
+                const className = tiles[tile_id].className
+                if (className === '') {
+                    setTileRangeMovementDark(tile_id)
+                }
             })
+            game.getTilesByRange({ tile_id, range: rangemovement }).forEach(
+                tile_id => {
+                    const className = tiles[tile_id].className
+                    if (className === '') {
+                        setTileRangeMovement(tile_id)
+                    }
+                }
+            )
+            if (enemies.length > 0 && unit_selected === undefined) {
+                enemies.forEach(({ unit_id, damage, life }) => {
+                    const death = life - damage < 1
+                    units[unit_id].changeDamagetaken(damage, death)
+                })
+            }
         }
     }
-})
+)
 game.on(EVENT.UNIT_SELECT, ({ unit_id, walkables, attackables }) => {
     const { range, tile_id } = units[unit_id]
     unit_tiles_rangeables = walkables.slice(0)
@@ -489,8 +500,8 @@ function setTileRange(tile_id) {
 function setTileRangeMovement(tile_id) {
     tiles[tile_id].className = 'rangemovement'
 }
-function setTileRangeMovementUnit(tile_id) {
-    tiles[tile_id].className = 'rangemovementunit'
+function setTileRangeMovementDark(tile_id) {
+    tiles[tile_id].className = 'rangemovementdark'
 }
 function clearTiles() {
     for (const tile_id in tiles) {
@@ -512,7 +523,7 @@ function clearTilesRangeMovement() {
     for (const tile_id in tiles) {
         if (
             tiles[tile_id].className === 'rangemovement' ||
-            tiles[tile_id].className === 'rangemovementunit'
+            tiles[tile_id].className === 'rangemovementdark'
         )
             tiles[tile_id].className = ''
     }
