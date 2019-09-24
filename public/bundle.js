@@ -3367,8 +3367,8 @@ function Board({ columns, rows }) {
     board.units_died = {}
     board.flags = {}
 
-    for (let x = 0; x < columns; ++x) {
-        for (let y = 0; y < rows; ++y) {
+    for (let y = 0; y < rows; ++y) {
+        for (let x = 0; x < columns; ++x) {
             board.tiles[getTileId(x, y)] = Tile({ x, y })
         }
     }
@@ -4207,7 +4207,7 @@ module.exports = { eventToFunction }
 },{}],50:[function(require,module,exports){
 function isValidNumber(number, name) {
     if (typeof number !== 'number') {
-        throw `'${name}' must be a number`
+        throw `'${name}' '${number}' must be a number`
     }
 }
 
@@ -4216,7 +4216,7 @@ function isValidString(string, name) {
         typeof string !== 'string' ||
         (typeof string === 'string' && string.length === 0)
     ) {
-        throw `'${name}' must be a string`
+        throw `'${name}' '${string}' must be a string`
     }
 }
 
@@ -4228,14 +4228,14 @@ function isValidUnique(key, list, name) {
 
 function isValidKey(key, object, name) {
     if (!object.hasOwnProperty(key)) {
-        throw `'${name}' not found`
+        throw `'${name}' '${key}' not found`
     }
 }
 
 function isValidType(value, diccionary, name) {
     const list = Object.keys(diccionary).map(key => diccionary[key])
     if (!list.some(item => item === value)) {
-        throw `Invalid '${name}' type`
+        throw `Invalid '${name}' '${value}'  type`
     }
 }
 

@@ -1,7 +1,7 @@
 // const
 const size = 33
-const columns = 21
-const rows = 25
+const columns = 25
+const rows = 21
 const PLAYER1 = '1'
 const PLAYER2 = '2'
 const PLAYER3 = '3'
@@ -40,6 +40,10 @@ game.on(EVENT.FLAG_TILE, ({ flag_id, tile_id }) => {
 })
 game.on(EVENT.UNIT_TILE, ({ unit_id, tile_id }) => {
     units[unit_id].changePosition(tile_id)
+    // console.log(
+    //     tiles[units[unit_id].tile_id].x,
+    //     tiles[units[unit_id].tile_id].y
+    // )
     const flag_id = getFlagByTile(tile_id)
     if (flag_id !== undefined && !document.getElementById('editing').checked) {
         const { player_id } = units[unit_id]
@@ -309,8 +313,8 @@ function createUnit({ img }) {
         changePosition: tile_id => {
             const { x, y } = tiles[tile_id]
             object.tile_id = tile_id
-            div.style.top = `${size * x + x}px`
-            div.style.left = `${size * y + y}px`
+            div.style.left = `${size * x + x}px`
+            div.style.top = `${size * y + y}px`
         },
         changePath: path => {
             path.unshift(object.tile_id)
@@ -448,8 +452,8 @@ function getNextTileId(inverted = false) {
 }
 
 function createGrid() {
-    for (let x = 0; x < columns; ++x) {
-        for (let y = 0; y < rows; ++y) {
+    for (let y = 0; y < rows; ++y) {
+        for (let x = 0; x < columns; ++x) {
             const id = `${x}.${y}`
             const div = document.createElement('div')
             const div2 = document.createElement('div')
@@ -465,8 +469,8 @@ function createGrid() {
             div.oncontextmenu = e => onRightClick(id, e)
             div.style.width = `${size}px`
             div.style.height = `${size}px`
-            div.style.top = `${size * x + x}px`
-            div.style.left = `${size * y + y}px`
+            div.style.left = `${size * x + x}px`
+            div.style.top = `${size * y + y}px`
 
             tiles_list.push(id)
             tiles[id] = div
