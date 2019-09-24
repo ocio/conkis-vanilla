@@ -10,6 +10,12 @@ const tiles = {}
 const tiles_list = []
 const units = {}
 const flags = {}
+const players = {
+    1: { team_id: 1 },
+    2: { team_id: 2 },
+    3: { team_id: 1 },
+    4: { team_id: 2 }
+}
 
 // state
 let turn = PLAYER1
@@ -50,6 +56,7 @@ game.on(EVENT.UNIT_TILE, ({ unit_id, tile_id }) => {
         game.flagPlayer({ flag_id, player_id })
     }
 })
+
 game.on(
     EVENT.UNIT_INFO,
     ({ tile_id, unit_id, range, rangemovement, enemies }) => {
@@ -134,11 +141,45 @@ function changeTurn(player_id) {
             player_id === String(i)
     }
 }
+// http://www.monkeyandcrow.com/blog/drawing_lines_with_css3/
 
+function getRangeMovement({ range, movement }) {
+    const rangemovement = [range[0] - movement || 1, range[1] + movement]
+    if (rangemovement[0] < 1) {
+        rangemovement[0] = 1
+    }
+    return rangemovement
+}
+function getDistanceFromPoints({ x1, y1, x2, y2 }) {
+    const x = x1 > x2 ? x1 - x2 : x2 - x1
+    const y = y1 > y2 ? y1 - y2 : y2 - y1
+    return Math.max(x, y)
+}
+function getUnitsThatAttackThisTile({ tile_id }) {
+    const units_id = []
+    for (const unit_id in units) {
+        const { range, movement } = units[unit_id]
+        const tile = tiles[units[unit_id].tile_id]
+        const { x, y } = tiles[tile_id]
+        const rangemovement = getRangeMovement({ range, movement })
+        const distance = getDistanceFromPoints({
+            x1: tile.x,
+            y1: tile.y,
+            x2: x,
+            y2: y
+        })
+
+        if (distance >= rangemovement[0] && distance <= rangemovement[1]) {
+            units_id.push(unit_id)
+        }
+    }
+    return units_id
+}
 function onClick(tile_id, e) {
+    const unit_id = getUnitByTile(tile_id)
     clearTiles()
     clearDamageTaken()
-    const unit_id = getUnitByTile(tile_id)
+
     if (unit_id !== undefined) {
         const unit = units[unit_id]
 
@@ -183,14 +224,26 @@ function onClick(tile_id, e) {
     if (e) e.stopPropagation()
 }
 
+function getUnitsRelation({ unit_id1, unit_id2 }) {
+    const unit1 = units[unit_id1]
+    const unit2 = units[unit_id2]
+    if (unit1.player_id === unit2.player_id) return 'OWNED'
+    const player1 = players[unit1.player_id]
+    const player2 = players[unit2.player_id]
+    if (player1.team_id === player2.team_id) return 'ALLY'
+    return 'ENEMY'
+}
+
 function onMouseDown(tile_id) {
     unit_dragging = getUnitByTile(tile_id)
     flag_dragging = getFlagByTile(tile_id)
     if (unit_dragging !== undefined) flag_dragging = undefined
 }
+
 function onMouseOver(tile_id) {
     clearTilesRangeMovement()
     clearDamageTaken()
+    clearLines()
     const editing = document.getElementById('editing').checked
     const unit_id = getUnitByTile(tile_id)
 
@@ -219,6 +272,33 @@ function onMouseOver(tile_id) {
             !turn_walks.includes(unit_selected)
                 ? tile_id
                 : unit.tile_id
+
+        if (unit_tiles_rangeables.includes(tile_id)) {
+            getUnitsThatAttackThisTile({ tile_id })
+                .map(unit_id => units[unit_id])
+                .filter(enemy => {
+                    // const unit = units[unit_selected]
+                    // console.log(unit.unit_type, enemy.unit_type)
+                    return (
+                        getUnitsRelation({
+                            unit_id1: enemy.unit_id,
+                            unit_id2: unit_selected
+                        }) === 'ENEMY'
+                    )
+                })
+                .forEach(unit => {
+                    const tile = tiles[tile_id]
+                    const tile_enemy = tiles[unit.tile_id]
+                    const size_half = size / 2
+                    const x1 = size * tile.x + size_half
+                    const y1 = size * tile.y + size_half
+                    const x2 = size * tile_enemy.x + size_half
+                    const y2 = size * tile_enemy.y + size_half
+                    console.log(tile.x, tile.y, tile_enemy.x, tile_enemy.y)
+                    console.log(x1, y1, x2, y2)
+                    createLine(x1, y1, x2, y2)
+                })
+        }
 
         game.unitInfo({ unit_id: unit_selected })
         game.getTilesByRange({
@@ -280,6 +360,7 @@ function unitAdd(type, player_id) {
     const unit = createUnit({ img: `img/${type}${player_id}.png` })
     unit.player_id = player_id
     unit.unit_id = unit_id
+    unit.unit_type = unit_type
     units[unit_id] = unit
     game.unitAdd(createUnitObject({ unit_id, unit_type }))
     game.unitPlayer({ unit_id, player_id })
@@ -533,3 +614,49 @@ document.body.onclick = function() {
     clearDamageTaken()
     unit_selected = undefined
 }
+
+function clearLines() {
+    const wrap = document.getElementById('lines')
+    while (wrap.firstChild) wrap.removeChild(wrap.firstChild)
+}
+
+function createLine(x1, y1, x2, y2) {
+    // const length = Math.round(
+    //     Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2))
+    // )
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute('width', size * (columns + 1))
+    svg.setAttribute('height', size * (rows + 1))
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+    line.setAttribute('x1', x1)
+    line.setAttribute('y1', y1)
+    line.setAttribute('x2', x2)
+    line.setAttribute('y2', y2)
+    svg.appendChild(line)
+    document.getElementById('lines').appendChild(svg)
+    return svg
+}
+
+// function createLine(x1, y1, x2, y2) {
+//     const length = Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2))
+//     const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI
+//     const line = document.createElement('div')
+//     line.style.position = `absolute`
+//     line.style.transform = `rotate(${angle}deg)`
+//     line.style.width = `${length}px`
+//     line.style.left = `${x1}px`
+//     line.style.top = `${y1}px`
+//     document.getElementById('grid').appendChild(line)
+
+//     // const line = $('<div>')
+//     //     .appendTo('#page')
+//     //     .addClass('line')
+//     //     .css({
+//     //         position: 'absolute',
+//     //         transform: transform
+//     //     })
+//     //     .width(length)
+//     //     .offset({ left: x1, top: y1 })
+
+//     return line
+// }

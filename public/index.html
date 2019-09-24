@@ -17,6 +17,9 @@
             font-family: arial;
             text-align: right;
         }
+        #lines {
+            position: relative;
+        }
         #grid {
             position: relative;
         }
@@ -127,6 +130,14 @@
             color: #f5a100;
             border: 0px solid #f5a100
         }
+        svg {
+            position: absolute;
+            pointer-events: none;
+        }
+        svg line {
+            stroke:red;
+            stroke-width: 2
+        }
     </style>
 <body>
     <div id="buttons">
@@ -207,6 +218,7 @@
         </div>
     </div>
     <div id="grid"></div>
+    <div id="lines"></div>
 </body>
 <script src="bundle.js"></script>
 <script src="main.js"></script>
