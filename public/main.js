@@ -156,7 +156,7 @@ function getDistanceFromPoints({ x1, y1, x2, y2 }) {
     return Math.max(x, y)
 }
 function getUnitsThatAttackThisTile({ tile_id }) {
-    const units_id = []
+    const list = []
     for (const unit_id in units) {
         const { range, movement } = units[unit_id]
         const tile = tiles[units[unit_id].tile_id]
@@ -170,15 +170,19 @@ function getUnitsThatAttackThisTile({ tile_id }) {
         })
 
         if (distance >= rangemovement[0] && distance <= rangemovement[1]) {
-            units_id.push(unit_id)
+            list.push({
+                unit_id,
+                team_id: players[units[unit_id].player_id].team_id
+            })
         }
     }
-    return units_id
+    return list
 }
 function onClick(tile_id, e) {
     const unit_id = getUnitByTile(tile_id)
     clearTiles()
     clearDamageTaken()
+    clearLines()
 
     if (unit_id !== undefined) {
         const unit = units[unit_id]
@@ -224,16 +228,6 @@ function onClick(tile_id, e) {
     if (e) e.stopPropagation()
 }
 
-function getUnitsRelation({ unit_id1, unit_id2 }) {
-    const unit1 = units[unit_id1]
-    const unit2 = units[unit_id2]
-    if (unit1.player_id === unit2.player_id) return 'OWNED'
-    const player1 = players[unit1.player_id]
-    const player2 = players[unit2.player_id]
-    if (player1.team_id === player2.team_id) return 'ALLY'
-    return 'ENEMY'
-}
-
 function onMouseDown(tile_id) {
     unit_dragging = getUnitByTile(tile_id)
     flag_dragging = getFlagByTile(tile_id)
@@ -266,6 +260,7 @@ function onMouseOver(tile_id) {
     else if (unit_selected !== undefined) {
         clearTilesRange()
         const unit = units[unit_selected]
+        const player = players[unit.player_id]
         const tile_id_origin =
             unit_tiles_rangeables.includes(tile_id) &&
             !turn_attacks.includes(unit_selected) &&
@@ -273,29 +268,21 @@ function onMouseOver(tile_id) {
                 ? tile_id
                 : unit.tile_id
 
-        if (unit_tiles_rangeables.includes(tile_id)) {
+        if (
+            unit_tiles_rangeables.includes(tile_id) &&
+            !turn_walks.includes(unit_selected)
+        ) {
             getUnitsThatAttackThisTile({ tile_id })
-                .map(unit_id => units[unit_id])
-                .filter(enemy => {
-                    // const unit = units[unit_selected]
-                    // console.log(unit.unit_type, enemy.unit_type)
-                    return (
-                        getUnitsRelation({
-                            unit_id1: enemy.unit_id,
-                            unit_id2: unit_selected
-                        }) === 'ENEMY'
-                    )
-                })
-                .forEach(unit => {
+                .filter(({ team_id }) => player.team_id !== team_id)
+                .forEach(({ unit_id }) => {
+                    const unit = units[unit_id]
                     const tile = tiles[tile_id]
                     const tile_enemy = tiles[unit.tile_id]
                     const size_half = size / 2
-                    const x1 = size * tile.x + size_half
-                    const y1 = size * tile.y + size_half
-                    const x2 = size * tile_enemy.x + size_half
-                    const y2 = size * tile_enemy.y + size_half
-                    console.log(tile.x, tile.y, tile_enemy.x, tile_enemy.y)
-                    console.log(x1, y1, x2, y2)
+                    const x1 = size * tile.x + size_half + tile.x
+                    const y1 = size * tile.y + size_half + tile.y
+                    const x2 = size * tile_enemy.x + size_half + tile_enemy.x
+                    const y2 = size * tile_enemy.y + size_half + tile_enemy.y
                     createLine(x1, y1, x2, y2)
                 })
         }
@@ -415,8 +402,8 @@ function createUnit({ img }) {
                         250
                     )
                     .onUpdate(o => {
-                        div.style.top = `${o.x}px`
-                        div.style.left = `${o.y}px`
+                        div.style.left = `${o.x}px`
+                        div.style.top = `${o.y}px`
                     })
                     .onComplete(() => {
                         if (index + 1 < path.length - 1) loop(index + 1)
@@ -612,6 +599,7 @@ requestAnimationFrame(animate)
 document.body.onclick = function() {
     clearTiles()
     clearDamageTaken()
+    clearLines()
     unit_selected = undefined
 }
 
@@ -625,8 +613,8 @@ function createLine(x1, y1, x2, y2) {
     //     Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2))
     // )
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-    svg.setAttribute('width', size * (columns + 1))
-    svg.setAttribute('height', size * (rows + 1))
+    // svg.setAttribute('width', size * (columns + 1))
+    // svg.setAttribute('height', size * (rows + 1))
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
     line.setAttribute('x1', x1)
     line.setAttribute('y1', y1)
