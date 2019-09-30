@@ -143,41 +143,6 @@ function changeTurn(player_id) {
 }
 // http://www.monkeyandcrow.com/blog/drawing_lines_with_css3/
 
-function getRangeMovement({ range, movement }) {
-    const rangemovement = [range[0] - movement || 1, range[1] + movement]
-    if (rangemovement[0] < 1) {
-        rangemovement[0] = 1
-    }
-    return rangemovement
-}
-function getDistanceFromPoints({ x1, y1, x2, y2 }) {
-    const x = x1 > x2 ? x1 - x2 : x2 - x1
-    const y = y1 > y2 ? y1 - y2 : y2 - y1
-    return Math.max(x, y)
-}
-function getUnitsThatAttackThisTile({ tile_id }) {
-    const list = []
-    for (const unit_id in units) {
-        const { range, movement } = units[unit_id]
-        const tile = tiles[units[unit_id].tile_id]
-        const { x, y } = tiles[tile_id]
-        const rangemovement = getRangeMovement({ range, movement })
-        const distance = getDistanceFromPoints({
-            x1: tile.x,
-            y1: tile.y,
-            x2: x,
-            y2: y
-        })
-
-        if (distance >= rangemovement[0] && distance <= rangemovement[1]) {
-            list.push({
-                unit_id,
-                team_id: players[units[unit_id].player_id].team_id
-            })
-        }
-    }
-    return list
-}
 function onClick(tile_id, e) {
     const unit_id = getUnitByTile(tile_id)
     clearTiles()
@@ -272,8 +237,8 @@ function onMouseOver(tile_id) {
             unit_tiles_rangeables.includes(tile_id) &&
             !turn_walks.includes(unit_selected)
         ) {
-            getUnitsThatAttackThisTile({ tile_id })
-                .filter(({ team_id }) => player.team_id !== team_id)
+            game.getUnitsThatAttackThisTile({ tile_id })
+                .filter(({ team_id }) => String(player.team_id) !== team_id)
                 .forEach(({ unit_id }) => {
                     const unit = units[unit_id]
                     const tile = tiles[tile_id]

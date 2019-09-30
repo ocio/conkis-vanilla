@@ -3601,6 +3601,7 @@ function getBonus({ unit_type, unit_enemy_type }) {
 const EventEmitter = require('events')
 const { EVENT } = require('../const')
 const { eventToFunction } = require('../utils/string')
+const { getRangeMovement, getDistanceFromPoints } = require('../utils/math')
 const Board = require('./Board')
 const unitInfo = require('../rules/unitInfo')
 const unitSelect = require('../rules/unitSelect')
@@ -3735,12 +3736,37 @@ function Game({ columns, rows }) {
         return board.getTilesByRange({ tile_id, range })
     }
 
+    game.getUnitsThatAttackThisTile = ({ tile_id }) => {
+        const list = []
+        for (const unit_id in units) {
+            const { range, movement } = board.units[unit_id]
+            const tile = board.tiles[units[unit_id].tile_id]
+            const { x, y } = board.tiles[tile_id]
+            const rangemovement = getRangeMovement({ range, movement })
+            const distance = getDistanceFromPoints({
+                x1: tile.x,
+                y1: tile.y,
+                x2: x,
+                y2: y
+            })
+
+            if (distance >= rangemovement[0] && distance <= rangemovement[1]) {
+                list.push({
+                    unit_id,
+                    team_id:
+                        board.players[board.units[unit_id].player_id].team_id
+                })
+            }
+        }
+        return list
+    }
+
     return game
 }
 
 module.exports = Game
 
-},{"../const":28,"../rules/unitAttack":44,"../rules/unitInfo":45,"../rules/unitSelect":46,"../rules/unitWalk":47,"../utils/string":49,"../utils/validators":50,"./Board":29,"events":1}],31:[function(require,module,exports){
+},{"../const":28,"../rules/unitAttack":44,"../rules/unitInfo":45,"../rules/unitSelect":46,"../rules/unitWalk":47,"../utils/math":48,"../utils/string":49,"../utils/validators":50,"./Board":29,"events":1}],31:[function(require,module,exports){
 // This library is not performant. We should use another library in the future.
 // The reason is because we have to make a grid.clone() every time we want to findPath()
 // https://github.com/qiao/PathFinding.js/issues/33
@@ -4069,7 +4095,8 @@ function unitAttack({ action, board }) {
 module.exports = unitAttack
 
 },{"../const":28}],45:[function(require,module,exports){
-const { EVENT, UNIT_TYPE, UNIT_RELATION } = require('../const')
+const { EVENT } = require('../const')
+const { getRangeMovement } = require('../utils/math')
 
 function unitInfo({ action, board }) {
     const { type, params } = action
@@ -4077,10 +4104,7 @@ function unitInfo({ action, board }) {
         const enemies = []
         const { unit_id } = params
         const { range, movement, tile_id } = board.getUnit({ unit_id })
-        const rangemovement = [range[0] - movement || 1, range[1] + movement]
-        if (rangemovement[0] < 1) {
-            rangemovement[0] = 1
-        }
+        const rangemovement = getRangeMovement({ range, movement })
         board
             .getTilesByRange({ tile_id, range: rangemovement })
             .forEach(tile_id => {
@@ -4112,7 +4136,7 @@ function unitInfo({ action, board }) {
 
 module.exports = unitInfo
 
-},{"../const":28}],46:[function(require,module,exports){
+},{"../const":28,"../utils/math":48}],46:[function(require,module,exports){
 const { EVENT, UNIT_RELATION } = require('../const')
 
 function unitSelect({ action, board }) {
@@ -4193,7 +4217,15 @@ function getDistanceFromPoints({ x1, y1, x2, y2 }) {
     return Math.max(x, y)
 }
 
-module.exports = { getTilesByRange, getDistanceFromPoints }
+function getRangeMovement({ range, movement }) {
+    const rangemovement = [range[0] - movement || 1, range[1] + movement]
+    if (rangemovement[0] < 1) {
+        rangemovement[0] = 1
+    }
+    return rangemovement
+}
+
+module.exports = { getTilesByRange, getDistanceFromPoints, getRangeMovement }
 
 },{}],49:[function(require,module,exports){
 function eventToFunction(string) {
