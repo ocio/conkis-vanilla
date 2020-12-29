@@ -4282,6 +4282,7 @@ module.exports = {
 },{}],51:[function(require,module,exports){
 window.Conkis = require('conkis-core')
 window.TWEEN = require('@tweenjs/tween.js')
+
 },{"@tweenjs/tween.js":52,"conkis-core":43}],52:[function(require,module,exports){
 (function (process){
 'use strict';
